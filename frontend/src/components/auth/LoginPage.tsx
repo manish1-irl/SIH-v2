@@ -224,14 +224,14 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       {/* Invisible Recaptcha Container for Firebase Phone Auth */}
       <div id="recaptcha-container"></div>
 
-      {/* Cinematic Golden Farmland Background */}
+      {/* Cinematic Vibrant Rural Enterprise Background */}
       <div className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-transform duration-1000 scale-105"
         style={{
-          backgroundImage: "url('/login-bg.jpg')",
+          backgroundImage: "url('/rural-bg.jpg')",
         }}
       >
-        {/* Soft Golden Hour Ambient Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40 backdrop-brightness-[0.96]" />
+        {/* Soft Golden Hour Ambient Gradients with Emerald & Navy Depth */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-[#0A2540]/35 backdrop-brightness-[0.98]" />
       </div>
 
       {/* Top Header Navigation */}
@@ -303,7 +303,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
       {/* Main Hero & Frosted Glassmorphism Login Card */}
       <main className="flex-1 flex items-center justify-center px-4 py-8 z-10">
-        <div className="w-full max-w-[430px] rounded-[2rem] bg-[#EDE5D8]/55 backdrop-blur-2xl border border-white/70 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] p-7 sm:p-9 text-center transition-all duration-300">
+        <div className="w-full max-w-[430px] rounded-[2rem] bg-white/85 backdrop-blur-2xl border border-white/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] p-7 sm:p-9 text-center transition-all duration-300">
           
           {/* Sahaay Emblem Header inside Card */}
           <div className="flex flex-col items-center mb-5">

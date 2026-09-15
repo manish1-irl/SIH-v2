@@ -177,15 +177,15 @@ export default function HomePageView({
 
   return (
     <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden font-sans select-none pb-20 md:pb-6">
-      {/* Cinematic Golden Farmland Background with Morning Mist */}
+      {/* Cinematic Vibrant Rural Enterprise Background */}
       <div
-        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-all duration-1000 scale-105"
+        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-all duration-700 scale-105"
         style={{
-          backgroundImage: "url('/login-bg.jpg')",
+          backgroundImage: "url('/rural-bg.jpg')",
         }}
       >
-        {/* Ambient atmospheric haze overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/35 backdrop-brightness-[0.98]" />
+        {/* Soft Golden Hour & Emerald atmospheric haze overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-[#0A2540]/35 backdrop-brightness-[0.98]" />
       </div>
 
       {/* Top Header: Logo at top left, Nav in center, User & Logout at right */}
@@ -435,7 +435,7 @@ export default function HomePageView({
             </div>
           </div>
 
-          {/* 4 Feature Action Pills Matching Mockup */}
+          {/* 4 Vibrant Feature Action Pills Matching Theme */}
           <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-3.5 w-full max-w-2xl relative z-10">
             <button
               onClick={() =>
@@ -444,9 +444,11 @@ export default function HomePageView({
                   `Calculate verified government scheme subsidies and bank loan eligibility for my ${activeBusinessIdea} business in ${activeLocality}.`
                 )
               }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-antigravity-navy/15 hover:border-antigravity-orange text-antigravity-charcoal hover:text-antigravity-orange shadow-subtle transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-emerald-50/90 backdrop-blur-md border border-emerald-200 hover:border-emerald-500 text-emerald-900 shadow-subtle hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
             >
-              <Calculator className="w-3.5 h-3.5 text-antigravity-sage group-hover:text-antigravity-orange transition-colors" />
+              <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Calculator className="w-3 h-3 text-emerald-700" />
+              </div>
               <span className="font-sans text-xs font-semibold tracking-wide">
                 Scheme Calculator
               </span>
@@ -459,9 +461,11 @@ export default function HomePageView({
                   `Evaluate hyper-local market feasibility, demand signals, and competition density for ${activeBusinessIdea} in ${activeLocality}.`
                 )
               }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-antigravity-navy/15 hover:border-antigravity-orange text-antigravity-charcoal hover:text-antigravity-orange shadow-subtle transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-blue-50/90 backdrop-blur-md border border-blue-200 hover:border-blue-500 text-blue-900 shadow-subtle hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
             >
-              <Compass className="w-3.5 h-3.5 text-antigravity-sage group-hover:text-antigravity-orange transition-colors" />
+              <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Compass className="w-3 h-3 text-blue-700" />
+              </div>
               <span className="font-sans text-xs font-semibold tracking-wide">
                 Feasibility Matrix
               </span>
@@ -474,11 +478,13 @@ export default function HomePageView({
                   `Identify local economic clusters, nearby FPOs, and supply chain partners for ${activeBusinessIdea} around ${activeLocality}.`
                 )
               }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-antigravity-navy/15 hover:border-antigravity-orange text-antigravity-charcoal hover:text-antigravity-orange shadow-subtle transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-purple-50/90 backdrop-blur-md border border-purple-200 hover:border-purple-500 text-purple-900 shadow-subtle hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
             >
-              <Network className="w-3.5 h-3.5 text-antigravity-sage group-hover:text-antigravity-orange transition-colors" />
+              <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Network className="w-3 h-3 text-purple-700" />
+              </div>
               <span className="font-sans text-xs font-semibold tracking-wide">
-                Cluster
+                Cluster Network
               </span>
             </button>
 
@@ -489,9 +495,11 @@ export default function HomePageView({
                   `Generate and download a bank-ready Detailed Project Report (DPR) for ${activeBusinessIdea} in ${activeLocality} with margin money ₹${activeCapital}.`
                 )
               }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-antigravity-navy/15 hover:border-antigravity-orange text-antigravity-charcoal hover:text-antigravity-orange shadow-subtle transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-amber-50/90 backdrop-blur-md border border-amber-200 hover:border-[#D96B27] text-amber-900 shadow-subtle hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
             >
-              <FileDown className="w-3.5 h-3.5 text-antigravity-sage group-hover:text-antigravity-orange transition-colors" />
+              <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FileDown className="w-3 h-3 text-[#D96B27]" />
+              </div>
               <span className="font-sans text-xs font-semibold tracking-wide">
                 Download DPR
               </span>

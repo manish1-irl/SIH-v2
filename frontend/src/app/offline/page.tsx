@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import Image from "next/image";
@@ -13,8 +13,16 @@ export default function OfflinePage() {
   };
 
   return (
-    <main className="min-h-screen bg-antigravity-cream flex flex-col items-center justify-center p-6 text-center">
-      <div className="max-w-md w-full bg-white/80 backdrop-blur-md rounded-2xl p-8 border border-antigravity-navy/10 shadow-elevated">
+    <main className="relative min-h-screen w-full flex flex-col items-center justify-center p-6 text-center select-none">
+      {/* Cinematic Vibrant Rural Enterprise Background */}
+      <div
+        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-all duration-700 scale-105"
+        style={{ backgroundImage: "url('/rural-bg.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-[#0A2540]/35 backdrop-brightness-[0.98]" />
+      </div>
+
+      <div className="max-w-md w-full bg-white/90 backdrop-blur-2xl rounded-3xl p-8 border border-white/80 shadow-2xl">
         <div className="flex justify-center mb-6">
           <div className="relative">
             <div className="w-16 h-16 rounded-full bg-antigravity-orange/10 flex items-center justify-center text-antigravity-orange mx-auto">
