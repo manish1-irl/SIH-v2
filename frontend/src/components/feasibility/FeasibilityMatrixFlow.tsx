@@ -53,12 +53,19 @@ export default function FeasibilityMatrixFlow({
   const [stateName, setStateName] = useState(initialState);
   const [capital, setCapital] = useState(initialCapital);
   const [businessIdea, setBusinessIdea] = useState(initialBusinessIdea);
-  const [isParamEditorOpen, setIsParamEditorOpen] = useState(false);
 
   // Server data state
   const [report, setReport] = useState<FeasibilityReportResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Synchronize incoming props
+  useEffect(() => {
+    if (initialLocality) setLocality(initialLocality);
+    if (initialState) setStateName(initialState);
+    if (initialCapital) setCapital(initialCapital);
+    if (initialBusinessIdea) setBusinessIdea(initialBusinessIdea);
+  }, [initialLocality, initialState, initialCapital, initialBusinessIdea]);
 
   // Fetch real data from server
   const fetchFeasibilityData = async () => {
@@ -82,7 +89,7 @@ export default function FeasibilityMatrixFlow({
 
   useEffect(() => {
     fetchFeasibilityData();
-  }, []);
+  }, [locality, stateName, capital, businessIdea]);
 
   const matrix = report?.evidence?.market_feasibility || {};
   const marketReach = matrix.market_reach || {
@@ -233,94 +240,30 @@ export default function FeasibilityMatrixFlow({
           </span>
         </div>
 
-        {/* Live Parameters Pill */}
+        {/* Live Parameters Pill (Synchronized from User Input) */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsParamEditorOpen(!isParamEditorOpen)}
-            className="flex items-center gap-2 bg-white/80 hover:bg-white backdrop-blur-md px-3.5 py-1.5 rounded-full border border-antigravity-navy/15 text-xs font-semibold text-antigravity-navy transition-all shadow-subtle"
-            title="Adjust input parameters for live recalculation"
+          <div
+            className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-antigravity-navy/15 text-xs font-semibold text-antigravity-navy shadow-subtle"
+            title="Parameters synchronized with AI advisor"
           >
-            <Sliders className="w-3.5 h-3.5 text-antigravity-sage" />
-            <span>{businessIdea}</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="truncate max-w-[160px]">{businessIdea}</span>
             <span className="text-antigravity-navy/40">•</span>
             <span>{locality}, {stateName}</span>
             <span className="text-antigravity-navy/40">•</span>
-            <span className="text-antigravity-orange font-bold">₹{Number(capital).toLocaleString()}</span>
-          </button>
+            <span className="text-antigravity-orange font-bold">₹{Number(capital).toLocaleString("en-IN")}</span>
+          </div>
 
           <button
             onClick={fetchFeasibilityData}
             disabled={isLoading}
-            className="p-1.5 rounded-full bg-white/80 hover:bg-white text-antigravity-navy/70 hover:text-antigravity-orange transition-all border border-antigravity-navy/15 shadow-subtle disabled:opacity-50"
+            className="p-1.5 rounded-full bg-white/80 hover:bg-white text-antigravity-navy/70 hover:text-antigravity-orange transition-all border border-antigravity-navy/15 shadow-subtle disabled:opacity-50 cursor-pointer"
             title="Re-fetch server data"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
-
-      {/* Parameter Editor Drawer / Bar */}
-      {isParamEditorOpen && (
-        <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 mb-3 z-30 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="bg-white/95 backdrop-blur-xl border border-antigravity-navy/15 rounded-2xl p-4 shadow-elevated grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div>
-              <label className="block font-sans text-[10px] font-semibold uppercase text-antigravity-navy/60 mb-1">
-                Business Enterprise
-              </label>
-              <input
-                type="text"
-                value={businessIdea}
-                onChange={(e) => setBusinessIdea(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs rounded-xl border border-antigravity-navy/15 focus:border-antigravity-orange outline-none bg-antigravity-cream/40"
-              />
-            </div>
-            <div>
-              <label className="block font-sans text-[10px] font-semibold uppercase text-antigravity-navy/60 mb-1">
-                Locality / Block
-              </label>
-              <input
-                type="text"
-                value={locality}
-                onChange={(e) => setLocality(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs rounded-xl border border-antigravity-navy/15 focus:border-antigravity-orange outline-none bg-antigravity-cream/40"
-              />
-            </div>
-            <div>
-              <label className="block font-sans text-[10px] font-semibold uppercase text-antigravity-navy/60 mb-1">
-                State
-              </label>
-              <input
-                type="text"
-                value={stateName}
-                onChange={(e) => setStateName(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs rounded-xl border border-antigravity-navy/15 focus:border-antigravity-orange outline-none bg-antigravity-cream/40"
-              />
-            </div>
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <label className="block font-sans text-[10px] font-semibold uppercase text-antigravity-navy/60 mb-1">
-                  Capital Outlay (₹)
-                </label>
-                <input
-                  type="number"
-                  value={capital}
-                  onChange={(e) => setCapital(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 text-xs rounded-xl border border-antigravity-navy/15 focus:border-antigravity-orange outline-none bg-antigravity-cream/40 font-semibold text-antigravity-navy"
-                />
-              </div>
-              <button
-                onClick={() => {
-                  setIsParamEditorOpen(false);
-                  fetchFeasibilityData();
-                }}
-                className="px-4 py-1.5 rounded-xl bg-antigravity-navy text-white text-xs font-semibold hover:bg-antigravity-orange transition-colors h-[31px]"
-              >
-                Recalculate
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Top 5-Stage Step Navigation Pills */}
       <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 mb-3 z-20">

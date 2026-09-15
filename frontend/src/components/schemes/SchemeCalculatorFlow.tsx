@@ -27,6 +27,9 @@ interface SchemeCalculatorFlowProps {
   onProceedToFeasibility?: () => void;
   onProceedToDpr?: () => void;
   initialCapital?: number;
+  initialBusinessIdea?: string;
+  initialLocality?: string;
+  initialState?: string;
 }
 
 export default function SchemeCalculatorFlow({
@@ -34,6 +37,9 @@ export default function SchemeCalculatorFlow({
   onProceedToFeasibility,
   onProceedToDpr,
   initialCapital = 100000,
+  initialBusinessIdea = "Commercial Mini Dairy & Chilling Unit",
+  initialLocality = "Bassi",
+  initialState = "Rajasthan",
 }: SchemeCalculatorFlowProps) {
   // Input parameters
   const [capital, setCapital] = useState(initialCapital);
@@ -44,7 +50,6 @@ export default function SchemeCalculatorFlow({
   const [commercialRate, setCommercialRate] = useState(12.5);
 
   // UI States
-  const [isParamEditorOpen, setIsParamEditorOpen] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<"curve" | "split">("curve");
   const [hoveredQuarterIndex, setHoveredQuarterIndex] = useState<number | null>(9); // default hovered to Y3-Q2 for initial view
   const [isLoading, setIsLoading] = useState(true);
@@ -159,6 +164,12 @@ export default function SchemeCalculatorFlow({
   };
 
   useEffect(() => {
+    if (initialCapital && initialCapital > 0) {
+      setCapital(initialCapital);
+    }
+  }, [initialCapital]);
+
+  useEffect(() => {
     fetchLoanCalculation();
   }, [capital, marginPercent, annualInterestRate, tenureYears, moratoriumMonths, commercialRate]);
 
@@ -183,14 +194,6 @@ export default function SchemeCalculatorFlow({
     }
     return schedule[9] || schedule[0];
   }, [schedule, hoveredQuarterIndex]);
-
-  // Quick preset capital options
-  const PRESETS = [
-    { label: "₹50,000 (₹5L Project)", value: 50000 },
-    { label: "₹1,00,000 (₹10L Project)", value: 100000 },
-    { label: "₹2,00,000 (₹20L Project)", value: 200000 },
-    { label: "₹5,00,000 (₹50L Project)", value: 500000 },
-  ];
 
   // SVG Chart Geometry Calculations
   const chartWidth = 900;
@@ -264,24 +267,19 @@ export default function SchemeCalculatorFlow({
             </div>
           </div>
 
-          {/* Quick Actions */}
+          {/* Active Parameter Synchronized Badge */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsParamEditorOpen(!isParamEditorOpen)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
-                isParamEditorOpen
-                  ? "bg-antigravity-navy text-white border-antigravity-navy shadow-sm"
-                  : "bg-white text-antigravity-charcoal border-antigravity-navy/15 hover:border-antigravity-orange"
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>{isParamEditorOpen ? "Close Parameters" : "Adjust Capital / Rate"}</span>
-            </button>
+            <div className="flex items-center gap-2 bg-antigravity-navy/5 px-3 py-1.5 rounded-xl border border-antigravity-navy/10 text-xs font-semibold text-antigravity-navy">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="truncate max-w-[150px]">{initialBusinessIdea}</span>
+              <span className="text-antigravity-navy/40">•</span>
+              <span className="text-antigravity-orange font-bold">Margin: ₹{Number(capital).toLocaleString("en-IN")}</span>
+            </div>
 
             {onProceedToFeasibility && (
               <button
                 onClick={onProceedToFeasibility}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-antigravity-sage/15 text-antigravity-navy hover:bg-antigravity-sage/25 text-xs font-semibold transition-all"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-antigravity-sage/15 text-antigravity-navy hover:bg-antigravity-sage/25 text-xs font-semibold transition-all cursor-pointer"
               >
                 <Compass className="w-3.5 h-3.5 text-antigravity-sage" />
                 <span>Feasibility Matrix</span>
@@ -289,111 +287,6 @@ export default function SchemeCalculatorFlow({
             )}
           </div>
         </div>
-
-        {/* Dynamic Parameter Adjustment Drawer */}
-        {isParamEditorOpen && (
-          <div className="bg-antigravity-cream/95 border-t border-antigravity-navy/10 px-4 py-4 animate-in slide-in-from-top-2 duration-200">
-            <div className="max-w-6xl mx-auto space-y-3">
-              {/* Presets Row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold text-antigravity-navy uppercase tracking-wider">
-                  Quick Capital Presets:
-                </span>
-                {PRESETS.map((preset) => (
-                  <button
-                    key={preset.value}
-                    onClick={() => setCapital(preset.value)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                      capital === preset.value
-                        ? "bg-[#8B2500] text-white shadow-sm"
-                        : "bg-white text-antigravity-charcoal/80 border border-antigravity-navy/15 hover:border-antigravity-orange"
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Input Fields Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-antigravity-navy/70">
-                    Promoter Margin (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={capital}
-                    onChange={(e) => setCapital(Math.max(10000, Number(e.target.value)))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-white border border-antigravity-navy/20 text-xs font-semibold focus:outline-none focus:border-antigravity-orange"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-antigravity-navy/70">
-                    Margin Equity (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={marginPercent}
-                    onChange={(e) => setMarginPercent(Number(e.target.value))}
-                    step="1"
-                    className="w-full px-3 py-1.5 rounded-lg bg-white border border-antigravity-navy/20 text-xs font-semibold focus:outline-none focus:border-antigravity-orange"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-antigravity-navy/70">
-                    Concessional Rate (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={annualInterestRate}
-                    onChange={(e) => setAnnualInterestRate(Number(e.target.value))}
-                    step="0.25"
-                    className="w-full px-3 py-1.5 rounded-lg bg-white border border-antigravity-navy/20 text-xs font-semibold focus:outline-none focus:border-antigravity-orange"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-antigravity-navy/70">
-                    Repayment Tenure (Yrs)
-                  </label>
-                  <input
-                    type="number"
-                    value={tenureYears}
-                    onChange={(e) => setTenureYears(Math.max(1, Number(e.target.value)))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-white border border-antigravity-navy/20 text-xs font-semibold focus:outline-none focus:border-antigravity-orange"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-antigravity-navy/70">
-                    Grace Period (Months)
-                  </label>
-                  <input
-                    type="number"
-                    value={moratoriumMonths}
-                    onChange={(e) => setMoratoriumMonths(Math.max(0, Number(e.target.value)))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-white border border-antigravity-navy/20 text-xs font-semibold focus:outline-none focus:border-antigravity-orange"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-antigravity-navy/70">
-                    Commercial Benchmark (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={commercialRate}
-                    onChange={(e) => setCommercialRate(Number(e.target.value))}
-                    step="0.5"
-                    className="w-full px-3 py-1.5 rounded-lg bg-white border border-antigravity-navy/20 text-xs font-semibold focus:outline-none focus:border-antigravity-orange"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </header>
 
       {/* Main Content Area */}
