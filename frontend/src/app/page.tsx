@@ -10,6 +10,7 @@ import {
 import { apiClient } from "@/lib/api";
 import LoginPage from "@/components/auth/LoginPage";
 import HomePageView from "@/components/home/HomePageView";
+import FeasibilityMatrixFlow from "@/components/feasibility/FeasibilityMatrixFlow";
 import { getCurrentUser, logoutUser, UserProfile } from "@/lib/supabase";
 
 interface ChatMessage {
@@ -282,6 +283,22 @@ export default function HomePage() {
     );
   }
 
+  if (activeView === "feasibility") {
+    return (
+      <FeasibilityMatrixFlow
+        onBackToHome={() => setActiveView("home")}
+        onProceedToSchemes={() => {
+          setActiveView("schemes");
+          handleTriggerQuery("Calculate government scheme subsidies (PMEGP, MUDRA, PMFME, PM Vishwakarma) and bank loan eligibility for my business.");
+        }}
+        onProceedToDpr={() => {
+          setActiveView("dpr");
+          handleTriggerQuery("Generate DPR (Detailed Project Report) for bank loan submission.");
+        }}
+      />
+    );
+  }
+
   const selectedLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   return (
@@ -335,7 +352,7 @@ export default function HomePage() {
                 handleTriggerQuery("Run a hyper-local feasibility analysis for my business idea, capital, and location.");
               }}
               className={`font-sans text-xs font-semibold tracking-wide transition-colors py-1 ${
-                activeView === "feasibility"
+                (activeView as string) === "feasibility"
                   ? "text-antigravity-orange border-b-2 border-antigravity-orange"
                   : "text-antigravity-charcoal/70 hover:text-antigravity-orange"
               }`}

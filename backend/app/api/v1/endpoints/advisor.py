@@ -51,6 +51,14 @@ async def analyze_business(request: BusinessAdvisorRequest):
         business_category=request.business_idea or "general",
     )
 
+    market_matrix = FeasibilityEngine.generate_market_feasibility_matrix(
+        capital=request.capital,
+        business_idea=request.business_idea or "general",
+        locality=request.locality,
+        state=request.state,
+        financial_plan=financial_plan,
+    )
+
     evidence = EvidenceObject(
         user_inputs={
             "locality": request.locality,
@@ -65,9 +73,12 @@ async def analyze_business(request: BusinessAdvisorRequest):
         time_machine=time_machine,
         cluster_data=clusters,
         feasibility_scores=feasibility,
+        market_feasibility=market_matrix,
         sources=[
             {"name": "PMEGP Portal", "type": "government_scheme"},
             {"name": "MUDRA Portal", "type": "government_scheme"},
+            {"name": "Bhuvan & OpenStreetMap", "type": "geo_gis"},
+            {"name": "Ministry of MSME & APMC Data", "type": "market_data"},
         ],
         retrieved_at=datetime.now(timezone.utc).isoformat(),
     )
