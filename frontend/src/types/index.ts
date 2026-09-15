@@ -198,3 +198,40 @@ export interface ConcessionalLoanResponse {
   rules: string;
   schedule: AmortizationQuarter[];
 }
+
+export interface ClusterNode {
+  id: string;
+  role: "UPSTREAM PRODUCER" | "INPUT WHOLESALE" | "PEER RETAILER" | "INFRASTRUCTURE SHARING" | string;
+  title: string;
+  category: string;
+  distance_km: number;
+  capacity_metric: string;
+  rating: number;
+  synergy_benefit: string;
+  icon_type: "truck" | "store" | "package" | "snowflake" | string;
+  estimated_monthly_savings: number;
+}
+
+export interface ClusterHub {
+  name: string;
+  sector: string;
+  locality_node: string;
+  seeking: string;
+  daily_processing_volume: string;
+  max_peers: number;
+}
+
+export interface ClusterNetworkResponse {
+  locality: string;
+  business_idea: string;
+  hub: ClusterHub;
+  nodes: ClusterNode[];
+  collective_perks: string[];
+  unlocked_synergy_note: string;
+}
+
+export interface ClusterNetworkRequest {
+  locality?: string;
+  business_idea?: string;
+  enterprise_name?: string;
+}

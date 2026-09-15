@@ -12,6 +12,7 @@ import LoginPage from "@/components/auth/LoginPage";
 import HomePageView from "@/components/home/HomePageView";
 import FeasibilityMatrixFlow from "@/components/feasibility/FeasibilityMatrixFlow";
 import SchemeCalculatorFlow from "@/components/schemes/SchemeCalculatorFlow";
+import ClusterNetworkFlow from "@/components/cluster/ClusterNetworkFlow";
 import { getCurrentUser, logoutUser, UserProfile } from "@/lib/supabase";
 
 interface ChatMessage {
@@ -315,6 +316,24 @@ export default function HomePage() {
     );
   }
 
+  if (activeView === "cluster" || activeView === "explore") {
+    return (
+      <ClusterNetworkFlow
+        onBackToHome={() => setActiveView("home")}
+        onProceedToSchemes={() => {
+          setActiveView("schemes");
+        }}
+        onProceedToFeasibility={() => {
+          setActiveView("feasibility");
+        }}
+        onProceedToDpr={() => {
+          setActiveView("dpr");
+          handleTriggerQuery("Generate DPR (Detailed Project Report) for bank loan submission.");
+        }}
+      />
+    );
+  }
+
   const selectedLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   return (
@@ -394,7 +413,7 @@ export default function HomePage() {
                 handleTriggerQuery("Explore local economic clusters, nearby FPOs, mandis, cold storages, and supply chain partners.");
               }}
               className={`font-sans text-xs font-semibold tracking-wide transition-colors py-1 ${
-                activeView === "cluster" || activeView === "explore"
+                (activeView as string) === "cluster" || (activeView as string) === "explore"
                   ? "text-antigravity-orange border-b-2 border-antigravity-orange"
                   : "text-antigravity-charcoal/70 hover:text-antigravity-orange"
               }`}

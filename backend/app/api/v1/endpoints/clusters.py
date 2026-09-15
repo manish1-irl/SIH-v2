@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.models.schemas import ClusterOpportunity
+from app.models.schemas import ClusterOpportunity, ClusterNetworkResponse, ClusterNetworkRequest
 from app.engines.cluster import ClusterEngine
 
 router = APIRouter()
@@ -8,6 +8,15 @@ router = APIRouter()
 @router.post("/find", response_model=list[ClusterOpportunity])
 async def find_clusters(locality: str, business_category: str = "general"):
     return ClusterEngine.find_clusters(locality=locality, business_category=business_category)
+
+
+@router.post("/network", response_model=ClusterNetworkResponse)
+async def get_cluster_network(request: ClusterNetworkRequest):
+    return ClusterEngine.get_cluster_network(
+        locality=request.locality,
+        business_category=request.business_idea,
+        enterprise_name=request.enterprise_name,
+    )
 
 
 @router.get("/benefits")

@@ -5,6 +5,8 @@ import {
   BusinessGoal,
   ConcessionalLoanRequest,
   ConcessionalLoanResponse,
+  ClusterNetworkRequest,
+  ClusterNetworkResponse,
 } from "@/types";
 import { offlineDb } from "./db";
 
@@ -107,6 +109,16 @@ export const apiClient = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(`Concessional calculator error ${res.status}`);
+    return res.json();
+  },
+
+  async getClusterNetwork(data: ClusterNetworkRequest): Promise<ClusterNetworkResponse> {
+    const res = await fetch(`${API_BASE}/api/v1/clusters/network`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Cluster network error ${res.status}`);
     return res.json();
   },
 };

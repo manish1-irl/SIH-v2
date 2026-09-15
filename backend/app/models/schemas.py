@@ -186,6 +186,43 @@ class ClusterOpportunity(BaseModel):
     nearby_nodes_count: int
 
 
+class ClusterNode(BaseModel):
+    id: str
+    role: str  # "UPSTREAM PRODUCER" | "INPUT WHOLESALE" | "PEER RETAILER" | "INFRASTRUCTURE SHARING"
+    title: str
+    category: str
+    distance_km: float
+    capacity_metric: str
+    rating: float
+    synergy_benefit: str
+    icon_type: str
+    estimated_monthly_savings: float
+
+
+class ClusterHub(BaseModel):
+    name: str
+    sector: str
+    locality_node: str
+    seeking: str
+    daily_processing_volume: str
+    max_peers: int = 4
+
+
+class ClusterNetworkResponse(BaseModel):
+    locality: str
+    business_idea: str
+    hub: ClusterHub
+    nodes: List[ClusterNode]
+    collective_perks: List[str]
+    unlocked_synergy_note: str
+
+
+class ClusterNetworkRequest(BaseModel):
+    locality: str = "Bassi"
+    business_idea: str = "Dairy"
+    enterprise_name: str = "Ganga Dairy Parlour"
+
+
 # --- Lifecycle Models ---
 
 class HealthMetric(BaseModel):

@@ -211,6 +211,20 @@ class TestClusterEngine:
         assert clusters[0].nearby_nodes_count > 0
         assert len(clusters[0].complementary_businesses) > 0
 
+    def test_get_cluster_network(self):
+        result = ClusterEngine.get_cluster_network("Bassi", "dairy", "Ganga Dairy Parlour")
+        assert result.hub.name == "Ganga Dairy Parlour"
+        assert result.hub.max_peers == 4
+        assert len(result.nodes) == 4
+        roles = [n.role for n in result.nodes]
+        assert "UPSTREAM PRODUCER" in roles
+        assert "INPUT WHOLESALE" in roles
+        assert "PEER RETAILER" in roles
+        assert "INFRASTRUCTURE SHARING" in roles
+        assert result.nodes[0].distance_km == 2.8
+        assert result.nodes[1].distance_km == 3.5
+        assert len(result.collective_perks) >= 3
+
 
 class TestDPREngine:
     def test_generate_dpr(self):
