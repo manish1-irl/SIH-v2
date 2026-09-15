@@ -224,33 +224,33 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       {/* Invisible Recaptcha Container for Firebase Phone Auth */}
       <div id="recaptcha-container"></div>
 
-      {/* Cinematic Vibrant Rural Enterprise Background */}
-      <div className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-transform duration-1000 scale-105"
-        style={{
-          backgroundImage: "url('/rural-bg.jpg')",
-        }}
-      >
-        {/* Soft Golden Hour Ambient Gradients with Emerald & Navy Depth */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-[#0A2540]/35 backdrop-brightness-[0.98]" />
-      </div>
-
       {/* Top Header Navigation */}
       <header className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-5 flex items-center justify-between z-20">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
-          <div className="relative w-9 h-9 rounded-xl overflow-hidden bg-white/20 backdrop-blur-md p-1 border border-white/40 shadow-sm flex items-center justify-center">
+          <div className="relative w-10 h-10 rounded-2xl overflow-hidden bg-white/90 backdrop-blur-md p-1 border border-white/80 shadow-sm flex items-center justify-center">
             <Image
               src="/sahaay-logo.png"
               alt="Sahaay Logo"
-              width={34}
-              height={34}
+              width={36}
+              height={36}
               className="object-contain"
               priority
             />
           </div>
-          <span className="font-serif font-bold text-2xl text-white tracking-tight drop-shadow-md">
-            Sahaay
-          </span>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-serif font-bold text-2xl text-antigravity-navy tracking-tight drop-shadow-xs">
+                Sahaay
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 tracking-wide uppercase">
+                AI
+              </span>
+            </div>
+            <span className="font-sans text-[10px] text-emerald-800 font-semibold block leading-none">
+              MSME Business Advisory
+            </span>
+          </div>
         </div>
 
         {/* Language Selector Dropdown */}
@@ -258,11 +258,11 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <button
             type="button"
             onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/70 hover:bg-white/90 backdrop-blur-md border border-white/60 text-xs font-semibold text-[#2B1C03] shadow-sm transition-all"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/85 hover:bg-white backdrop-blur-md border border-white/80 text-xs font-semibold text-antigravity-navy shadow-xs transition-all"
           >
-            <Globe className="w-3.5 h-3.5 text-[#1B4332]" />
+            <Globe className="w-3.5 h-3.5 text-emerald-700" />
             <span>{selectedLanguage.label}</span>
-            <ChevronDown className="w-3 h-3 text-[#2B1C03]/60" />
+            <ChevronDown className="w-3 h-3 text-antigravity-navy/50" />
           </button>
 
           {isLangDropdownOpen && (
@@ -271,7 +271,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 className="fixed inset-0 z-40"
                 onClick={() => setIsLangDropdownOpen(false)}
               />
-              <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white/95 backdrop-blur-xl border border-black/10 shadow-xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-white border border-antigravity-navy/15 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 {LANGUAGES.map((lang) => (
                   <button
                     key={lang.code}
@@ -282,8 +282,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     }}
                     className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
                       selectedLanguage.code === lang.code
-                        ? "bg-[#1B4332]/10 text-[#1B4332] font-semibold"
-                        : "text-[#2B1C03]/80 hover:bg-black/5"
+                        ? "bg-antigravity-navy/10 text-antigravity-navy font-bold"
+                        : "text-antigravity-charcoal hover:bg-antigravity-cream"
                     }`}
                   >
                     <span className="flex items-center gap-2">
@@ -291,7 +291,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       <span>{lang.label}</span>
                     </span>
                     {selectedLanguage.code === lang.code && (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#1B4332]" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-antigravity-orange" />
                     )}
                   </button>
                 ))}
@@ -301,30 +301,30 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         </div>
       </header>
 
-      {/* Main Hero & Frosted Glassmorphism Login Card */}
+      {/* Main Hero & Luminous Frosted Glassmorphism Login Card */}
       <main className="flex-1 flex items-center justify-center px-4 py-8 z-10">
-        <div className="w-full max-w-[430px] rounded-[2rem] bg-white/85 backdrop-blur-2xl border border-white/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] p-7 sm:p-9 text-center transition-all duration-300">
+        <div className="w-full max-w-[440px] rounded-3xl bg-white/85 backdrop-blur-2xl border border-white/90 shadow-[0_20px_50px_rgba(10,37,64,0.16)] p-7 sm:p-9 text-center transition-all duration-300">
           
           {/* Sahaay Emblem Header inside Card */}
           <div className="flex flex-col items-center mb-5">
-            <div className="relative w-20 h-20 mb-2 drop-shadow-sm flex items-center justify-center">
+            <div className="relative w-16 h-16 mb-2.5 p-1 rounded-2xl bg-white shadow-xs border border-emerald-100 flex items-center justify-center">
               <Image
                 src="/sahaay-logo.png"
                 alt="Sahaay Emblem"
-                width={80}
-                height={80}
+                width={56}
+                height={56}
                 className="object-contain"
                 priority
               />
             </div>
-            <h1 className="font-serif text-2xl sm:text-[26px] font-bold text-[#231A10] tracking-tight">
+            <h1 className="font-serif text-2xl sm:text-[26px] font-bold text-antigravity-navy tracking-tight">
               Welcome to Sahaay
             </h1>
-            <p className="font-sans text-xs sm:text-[13px] text-[#4A3D2E] mt-0.5 font-medium">
-              Empowering Rural Entrepreneurs
+            <p className="font-sans text-xs sm:text-[13px] text-neutral-600 mt-0.5 font-medium">
+              Empowering Rural & Semi-Urban Entrepreneurs
             </p>
-            <span className="font-sans text-[10px] font-bold tracking-[0.22em] text-[#857462] uppercase mt-2.5">
-              Quick & Simple Access
+            <span className="font-sans text-[10px] font-bold tracking-[0.2em] text-[#D96B27] uppercase mt-2">
+              Fast OTP Access • Zero Password
             </span>
           </div>
 
@@ -348,30 +348,30 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <form onSubmit={handleRequestOtp} className="space-y-4 text-left">
               {/* Full Name Input */}
               <div>
-                <label className="block font-sans text-xs font-semibold text-[#2D2216] mb-1.5 pl-0.5">
+                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-1.5 pl-0.5">
                   Full Name
                 </label>
-                <div className="relative flex items-center rounded-xl bg-[#EBE2D4]/90 border border-[#D5C7B2] px-3.5 py-3 shadow-inner focus-within:border-[#1B4332] focus-within:ring-2 focus-within:ring-[#1B4332]/20 transition-all">
-                  <User className="w-4 h-4 text-[#7A6C5C] mr-2.5 shrink-0" />
+                <div className="relative flex items-center rounded-2xl bg-white/90 border border-neutral-200/90 px-3.5 py-3 shadow-xs focus-within:border-[#0A2540] focus-within:ring-2 focus-within:ring-[#0A2540]/15 transition-all">
+                  <User className="w-4 h-4 text-neutral-500 mr-2.5 shrink-0" />
                   <input
                     type="text"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="e.g. Anand Sharma"
-                    className="w-full bg-transparent border-none outline-none font-sans text-sm text-[#231A10] placeholder-[#8A7C6C] font-medium"
+                    className="w-full bg-transparent border-none outline-none font-sans text-sm text-neutral-900 placeholder-neutral-400 font-medium"
                   />
                 </div>
               </div>
 
               {/* Mobile Number Input with +91 Pill */}
               <div>
-                <label className="block font-sans text-xs font-semibold text-[#2D2216] mb-1.5 pl-0.5">
+                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-1.5 pl-0.5">
                   Mobile Number
                 </label>
-                <div className="flex items-center rounded-xl bg-[#EBE2D4]/90 border border-[#D5C7B2] p-1.5 shadow-inner focus-within:border-[#1B4332] focus-within:ring-2 focus-within:ring-[#1B4332]/20 transition-all">
-                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#DDD2C0] text-xs font-bold text-[#2B1E12] shrink-0 border border-black/5">
-                    <span>IN</span>
+                <div className="flex items-center rounded-2xl bg-white/90 border border-neutral-200/90 p-1.5 shadow-xs focus-within:border-[#0A2540] focus-within:ring-2 focus-within:ring-[#0A2540]/15 transition-all">
+                  <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-100 text-xs font-bold text-neutral-800 shrink-0 border border-black/5">
+                    <span>🇮🇳</span>
                     <span>+91</span>
                   </div>
                   <input
@@ -381,10 +381,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ""))}
                     placeholder="98765 43210"
-                    className="w-full bg-transparent border-none outline-none px-3 py-1 font-sans text-sm tracking-wider text-[#231A10] placeholder-[#8A7C6C] font-semibold"
+                    className="w-full bg-transparent border-none outline-none px-3 py-1 font-sans text-sm tracking-wider text-neutral-900 placeholder-neutral-400 font-semibold"
                   />
                 </div>
-                <p className="text-[11px] text-[#786B5D] mt-1.5 pl-1">
+                <p className="text-[11px] text-neutral-500 mt-1.5 pl-1">
                   We&apos;ll send a 6-digit SMS verification code
                 </p>
               </div>
@@ -393,7 +393,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-[#1B4332] hover:bg-[#143627] active:scale-[0.99] py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
+                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-gradient-to-r from-[#0A2540] via-[#1B4332] to-[#2D5A27] hover:brightness-110 active:scale-[0.99] py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -402,7 +402,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   </>
                 ) : (
                   <>
-                    <span>Get OTP</span>
+                    <span>Get OTP Code</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -415,8 +415,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <form onSubmit={handleVerifyOtp} className="space-y-5 text-left animate-in fade-in duration-200">
               <div className="flex items-center justify-between pb-1 border-b border-black/5">
                 <div>
-                  <span className="font-sans text-xs text-[#7A6C5C] block">OTP sent to:</span>
-                  <span className="font-sans text-sm font-bold text-[#231A10]">+91 {mobileNumber}</span>
+                  <span className="font-sans text-xs text-neutral-500 block">OTP sent to:</span>
+                  <span className="font-sans text-sm font-bold text-neutral-900">+91 {mobileNumber}</span>
                 </div>
                 <button
                   type="button"
@@ -424,7 +424,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     setStep("input");
                     setStatusMessage(null);
                   }}
-                  className="font-sans text-xs font-semibold text-[#1B4332] hover:underline flex items-center gap-1"
+                  className="font-sans text-xs font-semibold text-emerald-800 hover:underline flex items-center gap-1"
                 >
                   <Edit3 className="w-3 h-3" /> Change
                 </button>
@@ -432,7 +432,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
               {/* 6 Discrete Single-Digit OTP Inputs */}
               <div>
-                <label className="block font-sans text-xs font-semibold text-[#2D2216] mb-2.5 text-center">
+                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-2.5 text-center">
                   Enter 6-Digit Verification Code
                 </label>
                 <div className="flex items-center justify-center gap-2 sm:gap-2.5">
@@ -449,7 +449,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       onChange={(e) => handleOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                       onPaste={handleOtpPaste}
-                      className="w-11 h-13 sm:w-12 sm:h-14 text-center font-serif text-xl font-bold text-[#1B4332] rounded-xl bg-[#EBE2D4]/95 border border-[#D5C7B2] focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/25 outline-none shadow-sm transition-all"
+                      className="w-11 h-13 sm:w-12 sm:h-14 text-center font-serif text-xl font-bold text-emerald-900 rounded-2xl bg-white/95 border border-neutral-200/90 focus:border-[#0A2540] focus:ring-2 focus:ring-[#0A2540]/20 outline-none shadow-xs transition-all"
                     />
                   ))}
                 </div>
@@ -461,16 +461,16 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   <button
                     type="button"
                     onClick={(e) => handleRequestOtp(e)}
-                    className="font-semibold text-[#1B4332] hover:underline flex items-center gap-1 cursor-pointer"
+                    className="font-semibold text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <RefreshCw className="w-3 h-3" /> Resend OTP Code
                   </button>
                 ) : (
-                  <span className="text-[#786B5D]">
-                    Resend code in: <strong className="text-[#231A10]">00:{timerSeconds < 10 ? `0${timerSeconds}` : timerSeconds}</strong>
+                  <span className="text-neutral-500">
+                    Resend code in: <strong className="text-neutral-800">00:{timerSeconds < 10 ? `0${timerSeconds}` : timerSeconds}</strong>
                   </span>
                 )}
-                <span className="text-[11px] font-medium text-[#1B4332] bg-[#1B4332]/10 px-2 py-0.5 rounded">
+                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
                   Demo Code: 123456
                 </span>
               </div>
@@ -479,7 +479,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-[#1B4332] hover:bg-[#143627] active:scale-[0.99] py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
+                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-gradient-to-r from-[#0A2540] via-[#1B4332] to-[#2D5A27] hover:brightness-110 active:scale-[0.99] py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
               >
                 {isLoading ? (
                   <>

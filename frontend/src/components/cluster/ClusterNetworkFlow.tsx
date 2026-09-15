@@ -210,16 +210,9 @@ export default function ClusterNetworkFlow({
   };
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden font-sans select-none text-antigravity-charcoal pb-8">
-      {/* Cinematic Vibrant Rural Enterprise Background */}
-      <div
-        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-all duration-700 scale-105"
-        style={{ backgroundImage: "url('/rural-bg.jpg')" }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-[#0A2540]/35 backdrop-brightness-[0.98]" />
-      </div>
+    <div className="min-h-screen bg-transparent flex flex-col font-sans select-none text-antigravity-charcoal">
       {/* Header & Breadcrumbs */}
-      <header className="border-b border-antigravity-navy/10 bg-white/90 backdrop-blur-md sticky top-0 z-40 shadow-sm">
+      <header className="border-b border-white/60 bg-white/85 backdrop-blur-md sticky top-0 z-40 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -274,7 +267,7 @@ export default function ClusterNetworkFlow({
 
         {/* Dynamic Locality & Business Idea Drawer */}
         {isParamEditorOpen && (
-          <div className="bg-antigravity-cream/95 border-t border-antigravity-navy/10 px-4 py-4 animate-in slide-in-from-top-2 duration-200">
+          <div className="bg-white/90 backdrop-blur-xl border-t border-antigravity-navy/10 px-4 py-4 animate-in slide-in-from-top-2 duration-200">
             <div className="max-w-6xl mx-auto space-y-3">
               {/* Presets Row */}
               <div className="flex flex-wrap items-center gap-2">

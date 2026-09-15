@@ -17,12 +17,16 @@
   --shadow-elevated: 0 20px 35px -10px rgba(10, 37, 64, 0.14);
 }
 
+html {
+  background-color: var(--color-canvas-bg);
+}
+
 body {
   font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.55;
   color: var(--color-charcoal);
-  background-color: var(--color-canvas-bg);
+  background-color: transparent;
   -webkit-font-smoothing: antialiased;
 }
 

@@ -264,16 +264,9 @@ export default function PersonalDashboardView({
   };
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden font-sans select-none text-neutral-800 pb-10">
-      {/* Cinematic Vibrant Rural Enterprise Background */}
-      <div
-        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-all duration-700 scale-105"
-        style={{ backgroundImage: "url('/rural-bg.jpg')" }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-[#0A2540]/35 backdrop-brightness-[0.98]" />
-      </div>
+    <div className="min-h-screen bg-transparent flex flex-col font-sans text-neutral-800">
       {/* 1. TOP HEADER BAR: OFFICIAL SAHAAY LOGO (LEFT), NOTIFICATION BELL & USER PROFILE (RIGHT) */}
-      <header className="h-18 bg-white/95 backdrop-blur-md border-b border-neutral-200/80 px-6 sm:px-10 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-subtle">
+      <header className="h-18 bg-white/85 backdrop-blur-md border-b border-white/60 px-6 sm:px-10 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-subtle">
         {/* Left Topmost Corner: Official Logo Button that redirects to Home */}
         <button
           onClick={onBackToHome}

@@ -216,14 +216,6 @@ export default function FeasibilityMatrixFlow({
 
   return (
     <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden font-sans select-none text-antigravity-charcoal pb-8">
-      {/* Cinematic Vibrant Rural Enterprise Background */}
-      <div
-        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-all duration-700 scale-105"
-        style={{ backgroundImage: "url('/rural-bg.jpg')" }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-[#0A2540]/35 backdrop-brightness-[0.98]" />
-      </div>
-
       {/* Top Breadcrumb & Live Parameter Pill Bar */}
       <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-2 z-30 flex flex-wrap items-center justify-between gap-3">
         {/* Breadcrumbs / Back */}

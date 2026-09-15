@@ -177,17 +177,6 @@ export default function HomePageView({
 
   return (
     <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden font-sans select-none pb-20 md:pb-6">
-      {/* Cinematic Vibrant Rural Enterprise Background */}
-      <div
-        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat transition-all duration-700 scale-105"
-        style={{
-          backgroundImage: "url('/rural-bg.jpg')",
-        }}
-      >
-        {/* Soft Golden Hour & Emerald atmospheric haze overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-[#0A2540]/35 backdrop-brightness-[0.98]" />
-      </div>
-
       {/* Top Header: Logo at top left, Nav in center, User & Logout at right */}
       <header className="w-full max-w-7xl mx-auto px-4 sm:px-10 py-4 sm:py-5 flex items-center justify-between z-30">
         {/* Official Sahaay Logo at Left Topmost Corner (Click to Home) */}
@@ -281,16 +270,16 @@ export default function HomePageView({
       <main className="flex-1 flex flex-col items-center justify-start px-4 sm:px-6 pt-4 sm:pt-6 pb-12 z-20 w-full max-w-4xl mx-auto">
         <div className="w-full flex flex-col items-center text-center">
           {/* Brand Title */}
-          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold text-antigravity-navy tracking-tight drop-shadow-sm select-none mb-2">
+          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight drop-shadow-xs select-none mb-2 bg-gradient-to-r from-[#0A2540] via-[#1B4332] to-[#D96B27] bg-clip-text text-transparent">
             Sahaay
           </h1>
 
-          <p className="font-sans text-xs sm:text-sm text-antigravity-charcoal/80 max-w-md font-medium mb-5 drop-shadow-sm">
+          <p className="font-sans text-xs sm:text-sm text-[#2B1C03]/85 max-w-md font-medium mb-5 drop-shadow-xs">
             Hyper-Local AI Business Advisor for Rural & Semi-Urban India
           </p>
 
-          {/* Primary Interaction Pill (Search / Voice / Intake) with high z-index */}
-          <div className="w-full max-w-2xl bg-white/95 backdrop-blur-xl rounded-3xl sm:rounded-full px-2.5 py-2 sm:px-4 sm:py-3 shadow-elevated border border-antigravity-navy/10 flex flex-col gap-2 transition-all duration-300 focus-within:ring-2 focus-within:ring-antigravity-sage/60 focus-within:border-antigravity-sage/40 relative z-40">
+          {/* Primary Interaction Pill (Search / Voice / Intake) with high z-index and luminous frosted glass */}
+          <div className="w-full max-w-2xl bg-white/90 backdrop-blur-2xl rounded-3xl sm:rounded-full px-2.5 py-2 sm:px-4 sm:py-3 shadow-[0_16px_45px_rgba(10,37,64,0.12)] border border-white/90 flex flex-col gap-2 transition-all duration-300 focus-within:ring-2 focus-within:ring-[#87A96B]/60 focus-within:border-[#87A96B]/40 relative z-40">
             {/* Attachment preview strip if files or images are selected */}
             {attachments.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 px-2 pt-1 pb-1.5 border-b border-antigravity-navy/10">
@@ -435,7 +424,7 @@ export default function HomePageView({
             </div>
           </div>
 
-          {/* 4 Vibrant Feature Action Pills Matching Theme */}
+          {/* 4 Feature Action Pills with Vibrant Distinct Accents & Glassmorphism */}
           <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-3.5 w-full max-w-2xl relative z-10">
             <button
               onClick={() =>
@@ -444,11 +433,9 @@ export default function HomePageView({
                   `Calculate verified government scheme subsidies and bank loan eligibility for my ${activeBusinessIdea} business in ${activeLocality}.`
                 )
               }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-emerald-50/90 backdrop-blur-md border border-emerald-200 hover:border-emerald-500 text-emerald-900 shadow-subtle hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/85 hover:bg-emerald-50/90 backdrop-blur-md border border-emerald-200/80 hover:border-emerald-400 text-emerald-950 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
             >
-              <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Calculator className="w-3 h-3 text-emerald-700" />
-              </div>
+              <Calculator className="w-3.5 h-3.5 text-emerald-600 group-hover:text-emerald-700 transition-colors" />
               <span className="font-sans text-xs font-semibold tracking-wide">
                 Scheme Calculator
               </span>
@@ -461,11 +448,9 @@ export default function HomePageView({
                   `Evaluate hyper-local market feasibility, demand signals, and competition density for ${activeBusinessIdea} in ${activeLocality}.`
                 )
               }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-blue-50/90 backdrop-blur-md border border-blue-200 hover:border-blue-500 text-blue-900 shadow-subtle hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/85 hover:bg-blue-50/90 backdrop-blur-md border border-blue-200/80 hover:border-blue-400 text-blue-950 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
             >
-              <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Compass className="w-3 h-3 text-blue-700" />
-              </div>
+              <Compass className="w-3.5 h-3.5 text-blue-600 group-hover:text-blue-700 transition-colors" />
               <span className="font-sans text-xs font-semibold tracking-wide">
                 Feasibility Matrix
               </span>
@@ -478,11 +463,9 @@ export default function HomePageView({
                   `Identify local economic clusters, nearby FPOs, and supply chain partners for ${activeBusinessIdea} around ${activeLocality}.`
                 )
               }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-purple-50/90 backdrop-blur-md border border-purple-200 hover:border-purple-500 text-purple-900 shadow-subtle hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/85 hover:bg-indigo-50/90 backdrop-blur-md border border-indigo-200/80 hover:border-indigo-400 text-indigo-950 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
             >
-              <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Network className="w-3 h-3 text-purple-700" />
-              </div>
+              <Network className="w-3.5 h-3.5 text-indigo-600 group-hover:text-indigo-700 transition-colors" />
               <span className="font-sans text-xs font-semibold tracking-wide">
                 Cluster Network
               </span>
@@ -495,11 +478,9 @@ export default function HomePageView({
                   `Generate and download a bank-ready Detailed Project Report (DPR) for ${activeBusinessIdea} in ${activeLocality} with margin money ₹${activeCapital}.`
                 )
               }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-amber-50/90 backdrop-blur-md border border-amber-200 hover:border-[#D96B27] text-amber-900 shadow-subtle hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/85 hover:bg-amber-50/90 backdrop-blur-md border border-amber-200/80 hover:border-amber-400 text-amber-950 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
             >
-              <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <FileDown className="w-3 h-3 text-[#D96B27]" />
-              </div>
+              <FileDown className="w-3.5 h-3.5 text-[#D96B27] group-hover:text-amber-700 transition-colors" />
               <span className="font-sans text-xs font-semibold tracking-wide">
                 Download DPR
               </span>

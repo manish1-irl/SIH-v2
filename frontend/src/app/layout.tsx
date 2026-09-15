@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full bg-antigravity-cream">
+    <html lang="en" className="h-full">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -38,7 +38,19 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-antigravity-cream text-antigravity-charcoal font-sans antialiased selection:bg-antigravity-sage/30">
+      <body className="min-h-screen text-antigravity-charcoal font-sans antialiased selection:bg-antigravity-sage/30 relative">
+        {/* Global Rural Business Atmospheric Background Wallpaper */}
+        <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700 scale-100"
+            style={{
+              backgroundImage: "url('/sahaay-business-bg.jpg')",
+            }}
+          />
+          {/* Atmospheric gradient overlay: blends rural countryside with clean glassmorphic readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-[#FDFBF7]/55 to-[#FDFBF7]/80 backdrop-blur-[1px]" />
+        </div>
+
         <PwaManager />
         {children}
       </body>
