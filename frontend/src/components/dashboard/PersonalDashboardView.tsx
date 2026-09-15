@@ -79,6 +79,7 @@ export default function PersonalDashboardView({
   // Goal adding state
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [reminderResponses, setReminderResponses] = useState<Record<string, { action: string; advice: string }>>({});
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Operational task checklist state
   const [tasks, setTasks] = useState([
@@ -299,15 +300,79 @@ export default function PersonalDashboardView({
 
         {/* Right Corner: Notification Bell, User Profile, and Back to Home / Logout */}
         <div className="flex items-center gap-3 sm:gap-4">
-          {/* Notification Bell (relocated here per user instructions) */}
-          <button
-            onClick={() => alert(`Active Notifications for ${dash.business_name}:\n1. DTFC physical scrutiny scheduled at District DIC.\n2. Daily operational volume verification pending.\n3. Bank credit officer site inspection clearance on schedule.`)}
-            className="w-9 h-9 rounded-full bg-neutral-100 hover:bg-neutral-200/80 flex items-center justify-center text-neutral-600 transition-colors relative cursor-pointer"
-            title="Operational Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#D96B27] absolute top-1.5 right-1.5 ring-2 ring-white animate-pulse" />
-          </button>
+          {/* Notification Bell Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="w-9 h-9 rounded-full bg-neutral-100 hover:bg-neutral-200/80 flex items-center justify-center text-neutral-600 transition-colors relative cursor-pointer"
+              title="Operational Notifications"
+              aria-label="Operational Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#D96B27] absolute top-1.5 right-1.5 ring-2 ring-white animate-pulse" />
+            </button>
+
+            {showNotifications && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowNotifications(false)}
+                />
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-neutral-200 z-50 p-4 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-[#D96B27]" />
+                      <h4 className="font-serif font-bold text-sm text-[#0A2540]">Active Notifications</h4>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#D96B27]/10 text-[#D96B27]">
+                      3 New
+                    </span>
+                  </div>
+
+                  <div className="mt-3 space-y-2.5 max-h-80 overflow-y-auto">
+                    <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">DTFC Scrutiny</span>
+                        <span className="text-[10px] text-neutral-400">Today</span>
+                      </div>
+                      <p className="text-xs font-medium text-neutral-800 mt-1">
+                        DTFC physical scrutiny scheduled at District DIC. Ensure DPR hard copies are signed.
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/80 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800">Operations</span>
+                        <span className="text-[10px] text-neutral-400">Yesterday</span>
+                      </div>
+                      <p className="text-xs font-medium text-neutral-800 mt-1">
+                        Daily operational volume verification pending. Upload milk collection logs.
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Disbursement</span>
+                        <span className="text-[10px] text-neutral-400">2 days ago</span>
+                      </div>
+                      <p className="text-xs font-medium text-neutral-800 mt-1">
+                        Bank credit officer site inspection clearance is proceeding on schedule.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-neutral-100 flex justify-end">
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 px-3 py-1 rounded-lg hover:bg-neutral-100 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* User Profile Info */}
           <div className="flex items-center gap-2.5 pl-3 border-l border-neutral-200">

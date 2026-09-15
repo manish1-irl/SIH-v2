@@ -810,11 +810,11 @@ export default function SchemeCalculatorFlow({
                 </div>
 
                 {currentQtr && (
-                  <div className="p-3.5 bg-white rounded-2xl border border-antigravity-navy/10 flex items-center justify-between text-xs">
+                  <div className="p-3.5 bg-white rounded-2xl border border-antigravity-navy/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                     <span className="font-semibold text-antigravity-navy">
                       Selected: {currentQtr.label} ({currentQtr.status})
                     </span>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                       <span className="text-emerald-800 font-medium">
                         Principal Repaid: ₹{Math.round(currentQtr.principal_repaid).toLocaleString("en-IN")}
                       </span>

@@ -370,6 +370,19 @@ export default function HomePage() {
     setActiveView("dashboard");
   };
 
+  const handleResetChat = () => {
+    const name = currentUser?.full_name ? ` ${currentUser.full_name}` : "";
+    setMessages([
+      {
+        id: `msg-${Date.now()}`,
+        role: "agent",
+        text: `Namaste${name}! Conversation refreshed. Tell me your business idea, location, and available capital to evaluate feasibility, government schemes, or DPR requirements.`,
+        timestamp: Date.now(),
+        toolUsed: ["greeting"],
+      },
+    ]);
+  };
+
   const handleLogout = () => {
     logoutUser();
     setCurrentUser(null);
@@ -499,6 +512,8 @@ export default function HomePage() {
       onPlayAudio={playAudio}
       onSelectBusinessIdea={handleSelectBusinessIdea}
       onConfirmAndSubmitDpr={handleConfirmAndSubmitDpr}
+      onResetChat={handleResetChat}
+      isDprConfirmed={isDprConfirmed}
       activeBusinessIdea={businessIdea}
       activeLocality={locality}
       activeCapital={capital}

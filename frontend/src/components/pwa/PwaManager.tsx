@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
@@ -153,7 +153,7 @@ export default function PwaManager() {
 
       {/* Floating Install Prompt for Android & Desktop Chrome/Edge */}
       {isInstallable && !isInstalled && !dismissedPrompt && (
-        <div className="fixed bottom-5 right-5 z-40 max-w-sm bg-white border border-antigravity-navy/15 rounded-2xl p-3.5 shadow-elevated flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-20 sm:bottom-5 left-4 right-4 sm:left-auto sm:right-5 z-40 sm:max-w-sm bg-white border border-antigravity-navy/15 rounded-2xl p-3.5 shadow-elevated flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="relative shrink-0">
             <Image
               src="/icon-192.png"

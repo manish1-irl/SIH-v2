@@ -266,31 +266,37 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </button>
 
           {isLangDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white/95 backdrop-blur-xl border border-black/10 shadow-xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-              {LANGUAGES.map((lang) => (
-                <button
-                  key={lang.code}
-                  type="button"
-                  onClick={() => {
-                    setSelectedLanguage(lang);
-                    setIsLangDropdownOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors ${
-                    selectedLanguage.code === lang.code
-                      ? "bg-[#1B4332]/10 text-[#1B4332] font-semibold"
-                      : "text-[#2B1C03]/80 hover:bg-black/5"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span>{lang.flag}</span>
-                    <span>{lang.label}</span>
-                  </span>
-                  {selectedLanguage.code === lang.code && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#1B4332]" />
-                  )}
-                </button>
-              ))}
-            </div>
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsLangDropdownOpen(false)}
+              />
+              <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white/95 backdrop-blur-xl border border-black/10 shadow-xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                {LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => {
+                      setSelectedLanguage(lang);
+                      setIsLangDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      selectedLanguage.code === lang.code
+                        ? "bg-[#1B4332]/10 text-[#1B4332] font-semibold"
+                        : "text-[#2B1C03]/80 hover:bg-black/5"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>{lang.flag}</span>
+                      <span>{lang.label}</span>
+                    </span>
+                    {selectedLanguage.code === lang.code && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#1B4332]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </header>

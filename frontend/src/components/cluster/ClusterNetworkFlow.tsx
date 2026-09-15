@@ -62,6 +62,7 @@ export default function ClusterNetworkFlow({
   const [connectedNodeIds, setConnectedNodeIds] = useState<string[]>([]);
   const [isParamEditorOpen, setIsParamEditorOpen] = useState(false);
   const [showPactModal, setShowPactModal] = useState(false);
+  const [allianceConfirmed, setAllianceConfirmed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Server cluster response
@@ -917,23 +918,43 @@ export default function ClusterNetworkFlow({
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setShowPactModal(false)}
-                  className="px-4 py-2 rounded-xl bg-antigravity-navy/5 text-antigravity-charcoal text-xs font-semibold hover:bg-antigravity-navy/10"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    alert(`Cluster alliance for ${locality} registered under Sahaay Advisor!`);
-                    setShowPactModal(false);
-                  }}
-                  className="px-5 py-2 rounded-xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold shadow-md"
-                >
-                  Confirm Alliance
-                </button>
-              </div>
+              {allianceConfirmed ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center space-y-2 animate-in fade-in">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-serif font-bold text-sm text-emerald-900">
+                    Cluster Alliance Active & Verified!
+                  </h4>
+                  <p className="text-xs text-emerald-800/80">
+                    Supply chain synergies and 10% concessional credit parameters are registered for {locality}.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowPactModal(false);
+                      setAllianceConfirmed(false);
+                    }}
+                    className="mt-2 px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => setShowPactModal(false)}
+                    className="px-4 py-2 rounded-xl bg-antigravity-navy/5 text-antigravity-charcoal text-xs font-semibold hover:bg-antigravity-navy/10 cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => setAllianceConfirmed(true)}
+                    className="px-5 py-2 rounded-xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold shadow-md cursor-pointer"
+                  >
+                    Confirm Alliance
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -963,10 +984,20 @@ export default function ClusterNetworkFlow({
             {onProceedToFeasibility && (
               <button
                 onClick={onProceedToFeasibility}
-                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Compass className="w-3.5 h-3.5" />
                 <span>Feasibility Matrix</span>
+              </button>
+            )}
+
+            {onProceedToDpr && (
+              <button
+                onClick={onProceedToDpr}
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <FileDown className="w-3.5 h-3.5" />
+                <span>Generate DPR</span>
               </button>
             )}
           </div>

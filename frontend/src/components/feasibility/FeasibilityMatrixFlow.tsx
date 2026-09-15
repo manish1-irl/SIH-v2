@@ -17,6 +17,7 @@ import {
   Sliders,
   Check,
   Calculator,
+  FileDown,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { FeasibilityReportResponse } from "@/types";
@@ -859,19 +860,30 @@ export default function FeasibilityMatrixFlow({
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {onProceedToSchemes && (
               <button
                 onClick={onProceedToSchemes}
-                className="px-4 py-2 rounded-2xl bg-antigravity-navy hover:bg-[#081E33] text-white text-xs font-semibold transition-all shadow-md flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-2xl bg-antigravity-navy hover:bg-[#081E33] text-white text-xs font-semibold transition-all shadow-md flex items-center gap-1.5"
+                title="Evaluate Loan Subsidies"
               >
                 <Calculator className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Check</span> Schemes
+                <span>Check Schemes</span>
+              </button>
+            )}
+            {onProceedToDpr && (
+              <button
+                onClick={onProceedToDpr}
+                className="px-3.5 py-2 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center gap-1.5"
+                title="Generate Bank-Ready DPR"
+              >
+                <FileDown className="w-3.5 h-3.5" />
+                <span>Generate DPR</span>
               </button>
             )}
             <button
               onClick={onBackToHome}
-              className="px-5 py-2 rounded-2xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center gap-2"
+              className="px-4 py-2 rounded-2xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Complete Review</span>
