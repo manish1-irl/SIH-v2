@@ -23,10 +23,22 @@ import {
   RotateCcw,
   Home,
   X,
+  Paperclip,
+  FileText,
+  Send,
 } from "lucide-react";
 import { UserProfile } from "@/lib/supabase";
 import { ReverseDiscovery } from "@/components/ReverseDiscovery";
 import { ReverseFeasibilityRecommendation } from "@/types";
+
+export interface ChatAttachment {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  previewUrl?: string;
+  isImage?: boolean;
+}
 
 export interface HomeChatMessage {
   id: string;
@@ -38,6 +50,7 @@ export interface HomeChatMessage {
   toolUsed?: string[];
   reverseRecs?: ReverseFeasibilityRecommendation[];
   showProceedToDashboard?: boolean;
+  attachments?: ChatAttachment[];
 }
 
 interface HomePageViewProps {
@@ -49,7 +62,7 @@ interface HomePageViewProps {
   isRecording: boolean;
   onStartRecording: () => void;
   onStopRecording: () => void;
-  onSearchSubmit: (query: string) => void;
+  onSearchSubmit: (query: string, attachments?: ChatAttachment[]) => void;
   onSelectCapability: (capability: "schemes" | "feasibility" | "cluster" | "dpr", promptText: string) => void;
   onNavigate: (view: "home" | "feasibility" | "schemes" | "explore" | "dashboard") => void;
   messages: HomeChatMessage[];
@@ -89,21 +102,68 @@ export default function HomePageView({
 }: HomePageViewProps) {
   const [inputText, setInputText] = useState("");
   const [showLangMenu, setShowLangMenu] = useState(false);
-  const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const isInitialMount = useRef(true);
 
   const selectedLang = languages.find((l) => l.code === language) || languages[0];
 
+  // Prevent automatic scroll on initial page load; only scroll upon subsequent messages
   useEffect(() => {
-    if (messages.length > 0) {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (messages.length > 1) {
       chatScrollRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isProcessing]);
 
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments: ChatAttachment[] = Array.from(files).map((file) => {
+      const isImage = file.type.startsWith("image/");
+      const sizeStr =
+        file.size < 1024 * 1024
+          ? `${Math.round(file.size / 1024)} KB`
+          : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+
+      return {
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: file.name,
+        type: file.type,
+        size: sizeStr,
+        isImage,
+        previewUrl: isImage ? URL.createObjectURL(file) : undefined,
+      };
+    });
+
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleSend = () => {
+    const text = inputText.trim();
+    if (!text && attachments.length === 0) return;
+
+    onSearchSubmit(
+      text || (attachments.length > 0 ? `Uploaded ${attachments.length} attachment(s): ${attachments.map((a) => a.name).join(", ")}` : ""),
+      attachments
+    );
+    setInputText("");
+    setAttachments([]);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && inputText.trim()) {
-      onSearchSubmit(inputText.trim());
-      setInputText("");
+    if (e.key === "Enter") {
+      handleSend();
     }
   };
 
@@ -229,213 +289,154 @@ export default function HomePageView({
             Hyper-Local AI Business Advisor for Rural & Semi-Urban India
           </p>
 
-          {/* Primary Interaction Pill (Search / Voice / Intake) */}
-          <div className="w-full max-w-2xl bg-white/95 backdrop-blur-xl rounded-full px-2.5 py-2 sm:px-4 sm:py-3 shadow-elevated border border-antigravity-navy/10 flex items-center gap-1.5 sm:gap-3 transition-all duration-300 focus-within:ring-2 focus-within:ring-antigravity-sage/60 focus-within:border-antigravity-sage/40">
-            {/* Quick Intake Button (+) with Interactive Advisor Actions Menu */}
-            <div className="relative shrink-0">
+          {/* Primary Interaction Pill (Search / Voice / Intake) with high z-index */}
+          <div className="w-full max-w-2xl bg-white/95 backdrop-blur-xl rounded-3xl sm:rounded-full px-2.5 py-2 sm:px-4 sm:py-3 shadow-elevated border border-antigravity-navy/10 flex flex-col gap-2 transition-all duration-300 focus-within:ring-2 focus-within:ring-antigravity-sage/60 focus-within:border-antigravity-sage/40 relative z-40">
+            {/* Attachment preview strip if files or images are selected */}
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 px-2 pt-1 pb-1.5 border-b border-antigravity-navy/10">
+                {attachments.map((att) => (
+                  <div
+                    key={att.id}
+                    className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-900 px-2.5 py-1 rounded-lg text-xs font-medium animate-in fade-in"
+                  >
+                    {att.isImage && att.previewUrl ? (
+                      <img src={att.previewUrl} alt={att.name} className="w-4 h-4 rounded object-cover" />
+                    ) : (
+                      <Paperclip className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    )}
+                    <span className="max-w-[130px] truncate">{att.name}</span>
+                    <span className="text-[10px] text-emerald-600">({att.size})</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(att.id)}
+                      className="p-0.5 hover:bg-emerald-100 rounded text-emerald-700 hover:text-emerald-950 cursor-pointer ml-0.5"
+                      title="Remove attachment"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 sm:gap-3 w-full">
+              {/* Hidden File Input for images and documents */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf,.doc,.docx,.txt,.csv"
+                multiple
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+
+              {/* Quick Intake Button (+) Accepting Images or Files */}
               <button
                 type="button"
-                onClick={() => setShowPlusMenu(!showPlusMenu)}
+                onClick={() => fileInputRef.current?.click()}
                 className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all flex items-center justify-center shrink-0 shadow-xs cursor-pointer ${
-                  showPlusMenu
-                    ? "bg-antigravity-navy text-white rotate-45"
+                  attachments.length > 0
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700 ring-2 ring-emerald-300"
                     : "bg-antigravity-navy/5 hover:bg-antigravity-orange hover:text-white text-antigravity-navy"
                 }`}
-                title="Quick Actions & Capabilities"
-                aria-label="Quick Actions"
+                title="Attach images, documents or DPR spreadsheets"
+                aria-label="Attach images or files"
               >
-                <Plus className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform" />
+                <Plus className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
               </button>
 
-              {showPlusMenu && (
-                <>
-                  {/* Backdrop to dismiss menu on outside click */}
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowPlusMenu(false)}
-                  />
+              {/* Input Field */}
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isRecording ? "Listening to voice input..." : `Ask about any business in ${selectedLang.native}...`}
+                className="flex-1 min-w-0 bg-transparent font-sans text-xs sm:text-sm text-antigravity-charcoal placeholder:text-antigravity-navy/40 focus:outline-none px-1"
+              />
 
-                  <div className="absolute left-0 bottom-full mb-3 sm:bottom-auto sm:top-full sm:mt-3 bg-white/95 backdrop-blur-2xl border border-antigravity-navy/15 rounded-2xl shadow-elevated py-2 w-64 sm:w-72 z-50 animate-in fade-in slide-in-from-bottom-2 sm:slide-in-from-top-2 duration-150 text-left">
-                    <div className="px-3.5 py-1.5 border-b border-antigravity-navy/10 text-[10px] font-bold text-antigravity-navy/70 uppercase tracking-wider">
-                      Quick Advisor Actions
+              {/* Language Selector Pill with high z-index and solid background */}
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowLangMenu(!showLangMenu)}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full bg-antigravity-cream/80 hover:bg-antigravity-cream transition-all border border-antigravity-navy/15 text-antigravity-navy cursor-pointer shrink-0"
+                  title="Change Language"
+                  aria-label="Change Language"
+                >
+                  <Languages className="w-3.5 h-3.5 text-antigravity-navy/70 shrink-0" />
+                  <span className="font-sans text-[11px] font-semibold hidden sm:inline truncate max-w-[65px]">
+                    {selectedLang.native}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-antigravity-navy/50 shrink-0" />
+                </button>
+
+                {showLangMenu && (
+                  <>
+                    {/* Backdrop to dismiss language dropdown on outside click */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowLangMenu(false)}
+                    />
+
+                    <div className="absolute right-0 top-full mt-2 bg-white border border-antigravity-navy/15 rounded-2xl shadow-2xl py-2 w-52 sm:w-56 z-50 max-h-64 sm:max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+                      <div className="px-3 py-1 border-b border-antigravity-navy/10 text-[10px] font-bold text-antigravity-navy/60 uppercase tracking-wider">
+                        Select Language ({languages.length})
+                      </div>
+                      {languages.map((lang) => (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => {
+                            onLanguageChange(lang.code);
+                            setShowLangMenu(false);
+                          }}
+                          className={`w-full text-left px-3.5 py-2 font-sans text-xs flex items-center justify-between hover:bg-antigravity-cream transition-all cursor-pointer ${
+                            language === lang.code
+                              ? "text-antigravity-orange font-semibold bg-antigravity-orange/5"
+                              : "text-antigravity-charcoal/85"
+                          }`}
+                        >
+                          <span className="font-medium">{lang.native}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-antigravity-navy/40 text-[10px]">{lang.name}</span>
+                            {language === lang.code && <Check className="w-3.5 h-3.5 text-antigravity-orange" />}
+                          </div>
+                        </button>
+                      ))}
                     </div>
+                  </>
+                )}
+              </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusMenu(false);
-                        if (onResetChat) onResetChat();
-                      }}
-                      className="w-full px-3.5 py-2 text-xs text-antigravity-charcoal hover:bg-antigravity-cream flex items-center gap-2.5 transition-colors cursor-pointer"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-antigravity-orange/15 text-antigravity-orange flex items-center justify-center shrink-0">
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="font-semibold block text-antigravity-navy leading-tight">New Consultation</span>
-                        <span className="text-[10px] text-antigravity-charcoal/60 leading-tight">Reset & start fresh assessment</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusMenu(false);
-                        onNavigate("feasibility");
-                      }}
-                      className="w-full px-3.5 py-2 text-xs text-antigravity-charcoal hover:bg-antigravity-cream flex items-center gap-2.5 transition-colors cursor-pointer"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                        <Compass className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="font-semibold block text-antigravity-navy leading-tight">Feasibility Matrix</span>
-                        <span className="text-[10px] text-antigravity-charcoal/60 leading-tight">GIS, demand signals & competition</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusMenu(false);
-                        onNavigate("schemes");
-                      }}
-                      className="w-full px-3.5 py-2 text-xs text-antigravity-charcoal hover:bg-antigravity-cream flex items-center gap-2.5 transition-colors cursor-pointer"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center shrink-0">
-                        <Calculator className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="font-semibold block text-antigravity-navy leading-tight">Scheme Subsidies & Loans</span>
-                        <span className="text-[10px] text-antigravity-charcoal/60 leading-tight">PMEGP, MUDRA & repayment math</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusMenu(false);
-                        onNavigate("explore");
-                      }}
-                      className="w-full px-3.5 py-2 text-xs text-antigravity-charcoal hover:bg-antigravity-cream flex items-center gap-2.5 transition-colors cursor-pointer"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center shrink-0">
-                        <Network className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="font-semibold block text-antigravity-navy leading-tight">Economic Cluster Network</span>
-                        <span className="text-[10px] text-antigravity-charcoal/60 leading-tight">Supply chain synergies & FPOs</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusMenu(false);
-                        onSelectCapability(
-                          "dpr",
-                          `Generate a bank-ready Detailed Project Report (DPR) for ${activeBusinessIdea} in ${activeLocality} with margin capital ₹${activeCapital}.`
-                        );
-                      }}
-                      className="w-full px-3.5 py-2 text-xs text-antigravity-charcoal hover:bg-antigravity-cream flex items-center gap-2.5 transition-colors cursor-pointer"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                        <FileDown className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="font-semibold block text-antigravity-navy leading-tight">Generate Bank DPR</span>
-                        <span className="text-[10px] text-antigravity-charcoal/60 leading-tight">Validated DPR dossier with QR verification</span>
-                      </div>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Input Field */}
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isRecording ? "Listening to voice input..." : `Ask about any business in ${selectedLang.native}...`}
-              className="flex-1 min-w-0 bg-transparent font-sans text-xs sm:text-sm text-antigravity-charcoal placeholder:text-antigravity-navy/40 focus:outline-none px-1"
-            />
-
-            {/* Language Selector Pill with Outside-Click Backdrop & Responsive Menu */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowLangMenu(!showLangMenu)}
-                className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full bg-antigravity-cream/80 hover:bg-antigravity-cream transition-all border border-antigravity-navy/15 text-antigravity-navy cursor-pointer shrink-0"
-                title="Change Language"
-                aria-label="Change Language"
-              >
-                <Languages className="w-3.5 h-3.5 text-antigravity-navy/70 shrink-0" />
-                <span className="font-sans text-[11px] font-semibold hidden sm:inline truncate max-w-[65px]">
-                  {selectedLang.native}
-                </span>
-                <ChevronDown className="w-3 h-3 text-antigravity-navy/50 shrink-0" />
-              </button>
-
-              {showLangMenu && (
-                <>
-                  {/* Backdrop to dismiss language dropdown on outside click */}
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowLangMenu(false)}
-                  />
-
-                  <div className="absolute right-0 bottom-full mb-3 sm:bottom-auto sm:top-full sm:mt-3 bg-white/95 backdrop-blur-2xl border border-antigravity-navy/15 rounded-2xl shadow-elevated py-2 w-52 sm:w-56 z-50 max-h-64 sm:max-h-72 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 sm:slide-in-from-top-2 duration-150 text-left">
-                    <div className="px-3 py-1 border-b border-antigravity-navy/10 text-[10px] font-bold text-antigravity-navy/60 uppercase tracking-wider">
-                      Select Language ({languages.length})
-                    </div>
-                    {languages.map((lang) => (
-                      <button
-                        key={lang.code}
-                        type="button"
-                        onClick={() => {
-                          onLanguageChange(lang.code);
-                          setShowLangMenu(false);
-                        }}
-                        className={`w-full text-left px-3.5 py-2 font-sans text-xs flex items-center justify-between hover:bg-antigravity-cream transition-all cursor-pointer ${
-                          language === lang.code
-                            ? "text-antigravity-orange font-semibold bg-antigravity-orange/5"
-                            : "text-antigravity-charcoal/85"
-                        }`}
-                      >
-                        <span className="font-medium">{lang.native}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-antigravity-navy/40 text-[10px]">{lang.name}</span>
-                          {language === lang.code && <Check className="w-3.5 h-3.5 text-antigravity-orange" />}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Microphone Button for Voice-First Input */}
-            <button
-              onClick={handleMicClick}
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all shrink-0 shadow-sm cursor-pointer ${
-                isRecording
-                  ? "bg-red-500 text-white animate-pulse shadow-md"
-                  : "bg-antigravity-navy text-white hover:bg-antigravity-orange"
-              }`}
-              title={isRecording ? "Stop voice input" : "Speak in any Indian language"}
-            >
-              {isRecording ? (
-                <MicOff className="w-4 h-4 text-white" />
+              {/* Send or Mic Button */}
+              {inputText.trim() || attachments.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-antigravity-orange hover:bg-antigravity-navy text-white flex items-center justify-center transition-all shrink-0 shadow-sm cursor-pointer"
+                  title="Send inquiry"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
               ) : (
-                <Mic className="w-4 h-4 text-white" />
+                <button
+                  onClick={handleMicClick}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all shrink-0 shadow-sm cursor-pointer ${
+                    isRecording
+                      ? "bg-red-500 text-white animate-pulse shadow-md"
+                      : "bg-antigravity-navy text-white hover:bg-antigravity-orange"
+                  }`}
+                  title={isRecording ? "Stop voice input" : "Speak in any Indian language"}
+                >
+                  {isRecording ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white" />}
+                </button>
               )}
-            </button>
+            </div>
           </div>
 
           {/* 4 Feature Action Pills Matching Mockup */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-3.5 w-full max-w-2xl">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-3.5 w-full max-w-2xl relative z-10">
             <button
               onClick={() =>
                 onSelectCapability(
@@ -499,7 +500,7 @@ export default function HomePageView({
 
           {/* INLINE CHAT CONVERSATION DIRECTLY ON HOMEPAGE (NO REDIRECT TO ANOTHER PAGE) */}
           {messages.length > 0 && (
-            <div className="w-full max-w-2xl mt-6 space-y-4 max-h-[50vh] overflow-y-auto pr-1 text-left pb-4">
+            <div className="w-full max-w-2xl mt-6 space-y-4 max-h-[50vh] overflow-y-auto pr-1 text-left pb-4 relative z-10">
               {/* Active Context Status Pill */}
               <div className="flex items-center justify-center gap-2 mb-2">
                 <div className="px-3.5 py-1 rounded-full bg-white/85 backdrop-blur-md border border-antigravity-navy/10 text-[11px] font-semibold text-antigravity-navy shadow-xs flex items-center gap-2">
@@ -528,6 +529,35 @@ export default function HomePageView({
                             : "bg-white/95 backdrop-blur-xl border border-antigravity-navy/10 text-antigravity-charcoal rounded-tl-sm shadow-elevated"
                         }`}>
                           <p className="font-sans text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+
+                          {/* Render Attached Files / Images in Message Bubble */}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="mt-2.5 space-y-2">
+                              {msg.attachments.map((att) => (
+                                <div key={att.id} className="rounded-xl overflow-hidden">
+                                  {att.isImage && att.previewUrl ? (
+                                    <img
+                                      src={att.previewUrl}
+                                      alt={att.name}
+                                      className="max-h-56 max-w-full rounded-xl object-cover border border-white/20 shadow-sm"
+                                    />
+                                  ) : (
+                                    <div
+                                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs ${
+                                        msg.role === "user"
+                                          ? "bg-white/10 border-white/20 text-white"
+                                          : "bg-neutral-100 border-neutral-200 text-neutral-800"
+                                      }`}
+                                    >
+                                      <Paperclip className="w-4 h-4 shrink-0 opacity-80" />
+                                      <span className="font-medium truncate">{att.name}</span>
+                                      <span className="opacity-75 text-[10px]">({att.size})</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         {/* Inline Reverse Feasibility Cards */}

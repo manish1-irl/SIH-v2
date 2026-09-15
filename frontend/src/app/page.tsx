@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
 import LoginPage from "@/components/auth/LoginPage";
-import HomePageView, { HomeChatMessage } from "@/components/home/HomePageView";
+import HomePageView, { HomeChatMessage, ChatAttachment } from "@/components/home/HomePageView";
 import FeasibilityMatrixFlow from "@/components/feasibility/FeasibilityMatrixFlow";
 import SchemeCalculatorFlow from "@/components/schemes/SchemeCalculatorFlow";
 import ClusterNetworkFlow from "@/components/cluster/ClusterNetworkFlow";
@@ -47,18 +47,26 @@ export default function HomePage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const initialGreetingAdded = useRef(false);
 
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
     setIsHydrated(true);
 
-    const name = user?.full_name ? ` ${user.full_name}` : "";
-    addMessage({
-      role: "agent",
-      text: `Namaste${name}! I am your Sahaay Hyper-Local AI Business Advisor. I help rural Indian entrepreneurs with feasibility analysis, government scheme matching (PMEGP, MUDRA), financial planning, and business lifecycle support. Tell me your business idea, location, and available capital. You can speak in any Indian language!`,
-      toolUsed: ["greeting"],
-    });
+    if (!initialGreetingAdded.current) {
+      initialGreetingAdded.current = true;
+      const name = user?.full_name ? ` ${user.full_name}` : "";
+      setMessages([
+        {
+          id: "initial-greeting",
+          role: "agent",
+          text: `Namaste${name}! I am your Sahaay Hyper-Local AI Business Advisor. I help rural Indian entrepreneurs with feasibility analysis, government scheme matching (PMEGP, MUDRA), financial planning, and business lifecycle support. Tell me your business idea, location, and available capital. You can speak in any Indian language!`,
+          timestamp: Date.now(),
+          toolUsed: ["greeting"],
+        },
+      ]);
+    }
 
     // Restore active session state from backend if available
     apiClient.getSession().then((sess) => {
@@ -78,7 +86,16 @@ export default function HomePage() {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: Date.now(),
     };
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages((prev) => {
+      // Prevent identical consecutive messages
+      if (prev.length > 0) {
+        const last = prev[prev.length - 1];
+        if (last.role === newMsg.role && last.text === newMsg.text) {
+          return prev;
+        }
+      }
+      return [...prev, newMsg];
+    });
     return newMsg;
   };
 
@@ -290,16 +307,26 @@ export default function HomePage() {
   };
 
   // Main interaction query handler — keeps chat inline on the homepage without redirecting
-  const handleTriggerQuery = async (queryText: string) => {
+  const handleTriggerQuery = async (queryText: string, attachments?: ChatAttachment[]) => {
     const text = queryText.trim();
-    if (!text || isProcessing) return;
+    if (!text && (!attachments || attachments.length === 0)) return;
+    if (isProcessing) return;
 
-    parseBusinessParams(text);
-    addMessage({ role: "user", text, isVoice: false });
+    if (text) {
+      parseBusinessParams(text);
+    }
+
+    const displayText = text || (attachments && attachments.length > 0 ? `Uploaded ${attachments.length} attachment(s): ${attachments.map(a => a.name).join(", ")}` : "");
+    addMessage({
+      role: "user",
+      text: displayText,
+      isVoice: false,
+      attachments,
+    });
     setIsProcessing(true);
 
     try {
-      const lower = text.toLowerCase();
+      const lower = (text || "").toLowerCase();
       const isReverseFeasibility =
         lower.includes("recommend") ||
         lower.includes("suggest") ||
@@ -323,7 +350,11 @@ export default function HomePage() {
         } catch {}
       }
 
-      const result = await apiClient.textChat(text, language);
+      const promptToSend = attachments && attachments.length > 0
+        ? `${text ? `${text}\n` : ""}[User attached ${attachments.length} file(s): ${attachments.map(a => `${a.name} (${a.size})`).join(", ")}]`
+        : text;
+
+      const result = await apiClient.textChat(promptToSend, language);
 
       if (result.active_business) {
         if (result.active_business.business_idea) setBusinessIdea(result.active_business.business_idea);
@@ -350,7 +381,7 @@ export default function HomePage() {
     } catch {
       addMessage({
         role: "agent",
-        text: `I have received your inquiry: "${text}". The Sahaay AI Advisor engine computes local market feasibility, deterministic government subsidies (PMEGP, MUDRA, PMFME), and bank loan schedules for ${businessIdea} in ${locality}, ${stateName}.`,
+        text: `I have received your inquiry: "${displayText}". The Sahaay AI Advisor engine computes local market feasibility, deterministic government subsidies (PMEGP, MUDRA, PMFME), and bank loan schedules for ${businessIdea} in ${locality}, ${stateName}.`,
         toolUsed: ["advisor_engine"],
       });
     } finally {
@@ -391,11 +422,16 @@ export default function HomePage() {
   const handleLoginSuccess = (user: UserProfile) => {
     setCurrentUser(user);
     setActiveView("home");
-    addMessage({
-      role: "agent",
-      text: `Namaste ${user.full_name}! Welcome to Sahaay. Your session is active and verified. Tell me your business idea or question, and we'll evaluate feasibility and relevant schemes right away.`,
-      toolUsed: ["welcome"],
-    });
+    // Set a single clean welcome message
+    setMessages([
+      {
+        id: `login-welcome-${Date.now()}`,
+        role: "agent",
+        text: `Namaste ${user.full_name}! Welcome to Sahaay. Your session is active and verified. Tell me your business idea or question, and we'll evaluate feasibility and relevant schemes right away.`,
+        timestamp: Date.now(),
+        toolUsed: ["welcome"],
+      },
+    ]);
   };
 
   // Show login page first when user lands unauthenticated
@@ -494,8 +530,8 @@ export default function HomePage() {
       isRecording={isRecording}
       onStartRecording={startRecording}
       onStopRecording={stopRecording}
-      onSearchSubmit={(query) => {
-        handleTriggerQuery(query);
+      onSearchSubmit={(query, attachments) => {
+        handleTriggerQuery(query, attachments);
       }}
       onSelectCapability={(capability, promptText) => {
         if (capability === "dpr") {
