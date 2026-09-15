@@ -4,10 +4,12 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import {
   Mic, MicOff, Send, Volume2, VolumeX, Globe, Loader2,
-  Bot, User, Sparkles, AlertCircle, LogOut,
+  Bot, User, Sparkles, AlertCircle, LogOut, ArrowLeft,
+  Calculator, Compass, Network, FileDown,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import LoginPage from "@/components/auth/LoginPage";
+import HomePageView from "@/components/home/HomePageView";
 import { getCurrentUser, logoutUser, UserProfile } from "@/lib/supabase";
 
 interface ChatMessage {
@@ -39,6 +41,7 @@ const LANGUAGES = [
 export default function HomePage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [activeView, setActiveView] = useState<"home" | "schemes" | "feasibility" | "cluster" | "dpr" | "chat" | "explore">("home");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -199,6 +202,32 @@ export default function HomePage() {
     }
   };
 
+  const handleTriggerQuery = async (queryText: string) => {
+    addMessage({ role: "user", text: queryText, isVoice: false });
+    setIsProcessing(true);
+    try {
+      const result = await apiClient.textChat(queryText, language);
+      addMessage({
+        role: "agent",
+        text: result.agent_response,
+        audioBase64: result.voice_audio_base64,
+        toolUsed: result.tool_used,
+        report: result.data?.report,
+      });
+      if (autoSpeak && result.voice_audio_base64) {
+        playAudio(result.voice_audio_base64);
+      }
+    } catch {
+      addMessage({
+        role: "agent",
+        text: `I have received your inquiry: "${queryText}". The Sahaay AI Advisor engine calculates local market feasibility, deterministic government subsidies (PMEGP, MUDRA, PMFME), and bank loan schedules. What location and capital amount are you considering?`,
+        toolUsed: ["advisor_engine"],
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleLogout = () => {
     logoutUser();
     setCurrentUser(null);
@@ -206,6 +235,7 @@ export default function HomePage() {
 
   const handleLoginSuccess = (user: UserProfile) => {
     setCurrentUser(user);
+    setActiveView("home");
     addMessage({
       role: "agent",
       text: `Namaste ${user.full_name}! Welcome to Sahaay. Your session is active and verified. Tell me your business idea or question, and we'll evaluate feasibility and relevant schemes right away.`,
@@ -218,16 +248,54 @@ export default function HomePage() {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // Show home page first when user logs in
+  if (activeView === "home") {
+    return (
+      <HomePageView
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        language={language}
+        onLanguageChange={(newLang) => setLanguage(newLang)}
+        languages={LANGUAGES}
+        isRecording={isRecording}
+        onStartRecording={startRecording}
+        onStopRecording={stopRecording}
+        onSearchSubmit={(query) => {
+          setActiveView("chat");
+          handleTriggerQuery(query);
+        }}
+        onSelectCapability={(capability, promptText) => {
+          setActiveView(capability);
+          handleTriggerQuery(promptText);
+        }}
+        onNavigate={(view) => {
+          setActiveView(view);
+          if (view === "schemes") {
+            handleTriggerQuery("Calculate government scheme subsidies (PMEGP, MUDRA, PMFME, PM Vishwakarma) and bank loan eligibility for my business.");
+          } else if (view === "feasibility") {
+            handleTriggerQuery("Run a hyper-local feasibility analysis for my business idea, capital, and location.");
+          } else if (view === "explore") {
+            handleTriggerQuery("Explore local economic clusters, nearby FPOs, mandis, cold storages, and supply chain partners.");
+          }
+        }}
+      />
+    );
+  }
+
   const selectedLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   return (
     <div className="min-h-screen bg-antigravity-cream flex flex-col">
       {/* Header */}
-      <header className="border-b border-antigravity-navy/10 bg-white/85 backdrop-blur-md sticky top-0 z-50 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+      <header className="border-b border-antigravity-navy/10 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           {/* Brand Logo & Name */}
-          <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-white shadow-sm border border-emerald-100 flex items-center justify-center p-1">
+          <button
+            onClick={() => setActiveView("home")}
+            className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity"
+            title="Return to Sahaay Home"
+          >
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl overflow-hidden bg-white shadow-sm border border-emerald-100 flex items-center justify-center p-1">
               <Image
                 src="/sahaay-logo.png"
                 alt="Sahaay Logo"
@@ -247,23 +315,73 @@ export default function HomePage() {
                 </span>
               </div>
               <span className="font-sans text-[11px] text-emerald-700 font-medium block leading-tight">
-                Hyper-Local AI Business Guidance
+                Hyper-Local AI Guidance
               </span>
             </div>
-          </div>
+          </button>
+
+          {/* Navigation Links matching Home Page */}
+          <nav className="hidden md:flex items-center gap-6">
+            <button
+              onClick={() => setActiveView("home")}
+              className="font-sans text-xs font-semibold tracking-wide text-antigravity-charcoal/70 hover:text-antigravity-orange transition-colors flex items-center gap-1 py-1"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveView("feasibility");
+                handleTriggerQuery("Run a hyper-local feasibility analysis for my business idea, capital, and location.");
+              }}
+              className={`font-sans text-xs font-semibold tracking-wide transition-colors py-1 ${
+                activeView === "feasibility"
+                  ? "text-antigravity-orange border-b-2 border-antigravity-orange"
+                  : "text-antigravity-charcoal/70 hover:text-antigravity-orange"
+              }`}
+            >
+              Feasibility
+            </button>
+            <button
+              onClick={() => {
+                setActiveView("schemes");
+                handleTriggerQuery("Calculate government scheme subsidies (PMEGP, MUDRA, PMFME, PM Vishwakarma) and bank loan eligibility for my business.");
+              }}
+              className={`font-sans text-xs font-semibold tracking-wide transition-colors py-1 ${
+                activeView === "schemes"
+                  ? "text-antigravity-orange border-b-2 border-antigravity-orange"
+                  : "text-antigravity-charcoal/70 hover:text-antigravity-orange"
+              }`}
+            >
+              Scheme Calculator
+            </button>
+            <button
+              onClick={() => {
+                setActiveView("cluster");
+                handleTriggerQuery("Explore local economic clusters, nearby FPOs, mandis, cold storages, and supply chain partners.");
+              }}
+              className={`font-sans text-xs font-semibold tracking-wide transition-colors py-1 ${
+                activeView === "cluster" || activeView === "explore"
+                  ? "text-antigravity-orange border-b-2 border-antigravity-orange"
+                  : "text-antigravity-charcoal/70 hover:text-antigravity-orange"
+              }`}
+            >
+              Explore
+            </button>
+          </nav>
 
           {/* User Status & Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
             {currentUser && (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-xs text-emerald-900 font-medium">
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-xs text-emerald-900 font-medium">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="max-w-[140px] truncate">{currentUser.full_name}</span>
+                <span className="max-w-[120px] truncate">{currentUser.full_name}</span>
               </div>
             )}
 
             <button
               onClick={() => setAutoSpeak(!autoSpeak)}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all ${
                 autoSpeak ? "bg-antigravity-sage/15 text-antigravity-sage" : "bg-antigravity-navy/5 text-antigravity-navy/40"
               }`}
               title={autoSpeak ? "Auto-speak ON" : "Auto-speak OFF"}
@@ -274,7 +392,7 @@ export default function HomePage() {
             <div className="relative">
               <button
                 onClick={() => setShowLangMenu(!showLangMenu)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-antigravity-navy/5 hover:bg-antigravity-navy/10 transition-all"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-antigravity-navy/5 hover:bg-antigravity-navy/10 transition-all"
               >
                 <Globe className="w-3.5 h-3.5 text-antigravity-navy/60" />
                 <span className="font-sans text-xs font-semibold text-antigravity-navy/70">{selectedLang.native}</span>
@@ -300,7 +418,7 @@ export default function HomePage() {
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-all text-xs font-semibold border border-red-200/60 shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-all text-xs font-semibold border border-red-200/60 shadow-sm"
               title="Log out of Sahaay"
             >
               <LogOut className="w-3.5 h-3.5" />
