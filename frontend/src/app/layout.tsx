@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import PwaManager from "@/components/pwa/PwaManager";
 
 export const viewport: Viewport = {
   themeColor: "#0A2540",
@@ -11,6 +12,15 @@ export const metadata: Metadata = {
   title: "Sahaay | Hyper-Local AI Business Advisor",
   description: "Hyper-Local AI Business Advisor for rural Indian entrepreneurs. Voice-first, multilingual, zero hallucination guidance connected with government schemes.",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Sahaay",
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -29,6 +39,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-antigravity-cream text-antigravity-charcoal font-sans antialiased selection:bg-antigravity-sage/30">
+        <PwaManager />
         {children}
       </body>
     </html>
