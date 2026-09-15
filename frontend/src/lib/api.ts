@@ -13,7 +13,12 @@ import {
 } from "@/types";
 import { offlineDb } from "./db";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (process.env.NODE_ENV === "production" ||
+  (typeof window !== "undefined" && window.location.hostname !== "localhost")
+    ? "https://sih-v2-2yz4.onrender.com"
+    : "http://localhost:8000");
 
 export const apiClient = {
   async getVoiceStatus() {

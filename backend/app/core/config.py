@@ -18,12 +18,12 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     PORT: int = 8000
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "https://*.vercel.app"]
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
-    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    BHASHINI_API_KEY: str = os.getenv("BHASHINI_API_KEY", "")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://erbdkwmsbwyqdpasjwjf.supabase.co")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyYmRrd21zYnd5cWRwYXNqd2pmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMTY0MTEsImV4cCI6MjEwNDU5MjQxMX0.WEiTeFaLSveXI5ml2WijzQIa13C2wBfNyalKpK8_H8s")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "AIzaSyBrUq-VaPfAVJi2BAHjA3ZfaoxM-eCbLGE")
+    BHASHINI_API_KEY: str = os.getenv("BHASHINI_API_KEY", "463e6d1d78-ccf5-4b71-b3d3-0824b67415d5")
     BHASHINI_USER_ID: str = os.getenv("BHASHINI_USER_ID", "")
-    BHASHINI_INFERENCE_KEY: str = os.getenv("BHASHINI_INFERENCE_KEY", "")
+    BHASHINI_INFERENCE_KEY: str = os.getenv("BHASHINI_INFERENCE_KEY", "bS88zqBWY0g_WTSfGyNyeFNOQrDmVrce7tI39hPcv8fg_9svcmw_es2-irzw0-nQ")
 
     class Config:
         case_sensitive = True
