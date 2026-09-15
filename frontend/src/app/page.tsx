@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   Mic, MicOff, Send, Volume2, VolumeX, Globe, Loader2,
-  Bot, User, Sparkles, AlertCircle,
+  Bot, User, Sparkles, AlertCircle, LogOut,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
+import LoginPage from "@/components/auth/LoginPage";
+import { getCurrentUser, logoutUser, UserProfile } from "@/lib/supabase";
 
 interface ChatMessage {
   id: string;
@@ -34,6 +37,8 @@ const LANGUAGES = [
 ];
 
 export default function HomePage() {
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -49,13 +54,18 @@ export default function HomePage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const user = getCurrentUser();
+    setCurrentUser(user);
+    setIsHydrated(true);
+
     apiClient.getVoiceStatus().then((status) => {
       setServicesReady(status.bhashini_configured || status.gemini_configured);
     }).catch(() => {});
 
+    const name = user?.full_name ? ` ${user.full_name}` : "";
     addMessage({
       role: "agent",
-      text: "Namaste! I am your Hyper-Local AI Business Advisor. I help rural Indian entrepreneurs with feasibility analysis, government scheme matching (PMEGP, MUDRA), financial planning, and business lifecycle support. Tell me your business idea, location, and available capital. You can speak in any Indian language!",
+      text: `Namaste${name}! I am your Sahaay Hyper-Local AI Business Advisor. I help rural Indian entrepreneurs with feasibility analysis, government scheme matching (PMEGP, MUDRA), financial planning, and business lifecycle support. Tell me your business idea, location, and available capital. You can speak in any Indian language!`,
       toolUsed: ["greeting"],
     });
   }, []);
@@ -189,36 +199,82 @@ export default function HomePage() {
     }
   };
 
+  const handleLogout = () => {
+    logoutUser();
+    setCurrentUser(null);
+  };
+
+  const handleLoginSuccess = (user: UserProfile) => {
+    setCurrentUser(user);
+    addMessage({
+      role: "agent",
+      text: `Namaste ${user.full_name}! Welcome to Sahaay. Your session is active and verified. Tell me your business idea or question, and we'll evaluate feasibility and relevant schemes right away.`,
+      toolUsed: ["welcome"],
+    });
+  };
+
+  // Show login page first when user lands unauthenticated
+  if (isHydrated && !currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   const selectedLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   return (
     <div className="min-h-screen bg-antigravity-cream flex flex-col">
       {/* Header */}
-      <header className="border-b border-antigravity-navy/10 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-antigravity-navy text-white flex items-center justify-center shadow-subtle">
-              <span className="font-serif font-bold text-lg">A</span>
+      <header className="border-b border-antigravity-navy/10 bg-white/85 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+          {/* Brand Logo & Name */}
+          <div className="flex items-center gap-3">
+            <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-white shadow-sm border border-emerald-100 flex items-center justify-center p-1">
+              <Image
+                src="/sahaay-logo.png"
+                alt="Sahaay Logo"
+                width={36}
+                height={36}
+                className="object-contain"
+                priority
+              />
             </div>
             <div>
-              <span className="font-serif font-bold text-sm text-antigravity-navy tracking-tight block leading-tight">Antigravity</span>
-              <span className="font-sans text-[10px] text-antigravity-navy/60 block leading-tight">AI Business Advisor</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-serif font-bold text-base text-antigravity-navy tracking-tight leading-tight">
+                  Sahaay
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 tracking-wide uppercase">
+                  Advisor
+                </span>
+              </div>
+              <span className="font-sans text-[11px] text-emerald-700 font-medium block leading-tight">
+                Hyper-Local AI Business Guidance
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* User Status & Controls */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {currentUser && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-xs text-emerald-900 font-medium">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="max-w-[140px] truncate">{currentUser.full_name}</span>
+              </div>
+            )}
+
             <button
               onClick={() => setAutoSpeak(!autoSpeak)}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
                 autoSpeak ? "bg-antigravity-sage/15 text-antigravity-sage" : "bg-antigravity-navy/5 text-antigravity-navy/40"
               }`}
               title={autoSpeak ? "Auto-speak ON" : "Auto-speak OFF"}
             >
               {autoSpeak ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
+
             <div className="relative">
               <button
                 onClick={() => setShowLangMenu(!showLangMenu)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-antigravity-navy/5 hover:bg-antigravity-navy/10 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-antigravity-navy/5 hover:bg-antigravity-navy/10 transition-all"
               >
                 <Globe className="w-3.5 h-3.5 text-antigravity-navy/60" />
                 <span className="font-sans text-xs font-semibold text-antigravity-navy/70">{selectedLang.native}</span>
@@ -240,6 +296,16 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-all text-xs font-semibold border border-red-200/60 shadow-sm"
+              title="Log out of Sahaay"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
         </div>
       </header>

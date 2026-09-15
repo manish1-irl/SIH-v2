@@ -8,8 +8,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Antigravity | Voice-First AI Business Advisor",
-  description: "Speak to get feasibility analysis, government schemes, and financial planning for rural Indian entrepreneurs. Voice-first, multilingual, zero hallucination.",
+  title: "Sahaay | Hyper-Local AI Business Advisor",
+  description: "Hyper-Local AI Business Advisor for rural Indian entrepreneurs. Voice-first, multilingual, zero hallucination guidance connected with government schemes.",
   manifest: "/manifest.json",
 };
 
