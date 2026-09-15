@@ -1,11 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Antigravity | Hyper-Local AI Business Advisor",
-  description: "Feasibility engine, real government schemes, deterministic financials, and business lifecycle companion for rural & semi-urban entrepreneurs.",
-  manifest: "/manifest.json",
+export const viewport: Viewport = {
   themeColor: "#0A2540",
+  width: "device-width",
+  initialScale: 1,
+};
+
+export const metadata: Metadata = {
+  title: "Antigravity | Voice-First AI Business Advisor",
+  description: "Speak to get feasibility analysis, government schemes, and financial planning for rural Indian entrepreneurs. Voice-first, multilingual, zero hallucination.",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

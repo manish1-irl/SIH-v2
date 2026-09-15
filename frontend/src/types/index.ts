@@ -74,6 +74,13 @@ export interface ClusterOpportunity {
   nearby_nodes_count: number;
 }
 
+export interface SWOTAnalysis {
+  strengths: string[];
+  weaknesses: string[];
+  opportunities: string[];
+  threats: string[];
+}
+
 export interface FeasibilityReportResponse {
   report_id: string;
   status: string;
@@ -83,20 +90,46 @@ export interface FeasibilityReportResponse {
     market_feasibility: Record<string, any>;
     financial_data: FinancialPlan;
     scheme_data: SchemeRecommendation[];
-    time_machine: TimeMachineOutput;
+    time_machine?: TimeMachineOutput;
     cluster_data: ClusterOpportunity[];
-    feasibility_scores: FeasibilityScores;
+    feasibility_scores?: FeasibilityScores;
     sources: Array<{ name: string; type: string }>;
     retrieved_at: string;
   };
   narrative_summary: string;
-  swot: {
-    strengths: string[];
-    weaknesses: string[];
-    opportunities: string[];
-    threats: string[];
-  };
+  swot: SWOTAnalysis;
   recommendation: "GO" | "CONDITIONAL GO" | "RECONSIDER" | "DO NOT PROCEED";
+}
+
+export interface HealthMetric {
+  metric_name: string;
+  current_value: number;
+  target_value: number;
+  unit: string;
+  status: "on_track" | "warning" | "critical";
+}
+
+export interface RiskAlert {
+  alert_id: string;
+  severity: "low" | "medium" | "high" | "critical";
+  category: string;
+  message: string;
+  recommended_action: string;
+  triggered_at: string;
+}
+
+export interface LifecycleStatus {
+  business_id: string;
+  days_since_launch: number;
+  health_score: number;
+  health_metrics: HealthMetric[];
+  risk_alerts: RiskAlert[];
+  milestone_status: Array<{
+    day: number;
+    title: string;
+    status: string;
+  }>;
+  next_actions: string[];
 }
 
 export interface ReverseFeasibilityRecommendation {

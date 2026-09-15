@@ -1,233 +1,365 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
-  TrendingUp, MapPin, IndianRupee, ShieldCheck, Calendar,
-  Sparkles, Award, ChevronRight, RefreshCw, FileText,
-  AlertTriangle, ArrowUpRight, MessageSquare, Building2, Users,
+  Mic, MicOff, Send, Volume2, VolumeX, Globe, Loader2,
+  Bot, User, Sparkles, AlertCircle,
 } from "lucide-react";
+import { apiClient } from "@/lib/api";
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "agent";
+  text: string;
+  audioBase64?: string;
+  isVoice?: boolean;
+  timestamp: number;
+  toolUsed?: string[];
+  report?: any;
+}
+
+const LANGUAGES = [
+  { code: "hi", name: "Hindi", native: "हिन्दी" },
+  { code: "en", name: "English", native: "English" },
+  { code: "bn", name: "Bengali", native: "বাংলা" },
+  { code: "ta", name: "Tamil", native: "தமிழ்" },
+  { code: "te", name: "Telugu", native: "తెలుగు" },
+  { code: "mr", name: "Marathi", native: "मराठी" },
+  { code: "gu", name: "Gujarati", native: "ગુજરાતી" },
+  { code: "kn", name: "Kannada", native: "ಕನ್ನಡ" },
+  { code: "ml", name: "Malayalam", native: "മലയാളം" },
+  { code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ" },
+  { code: "or", name: "Odia", native: "ଓଡ଼ିଆ" },
+  { code: "as", name: "Assamese", native: "অসমীয়া" },
+];
 
 export default function HomePage() {
-  const [mode, setMode] = useState<"known" | "reverse">("known");
-  const [locality, setLocality] = useState("Alwar");
-  const [state, setState] = useState("Rajasthan");
-  const [capital, setCapital] = useState(100000);
-  const [businessIdea, setBusinessIdea] = useState("Dairy Micro-Enterprise");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"feasibility" | "finance" | "schemes" | "time" | "cluster">("feasibility");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [language, setLanguage] = useState("hi");
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [servicesReady, setServicesReady] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const projectCost = capital * 4.5;
-  const loanReq = projectCost - capital;
-  const emi = Math.round((loanReq * 0.085 / 12) / (1 - Math.pow(1 + 0.085 / 12, -54)));
+  useEffect(() => {
+    apiClient.getVoiceStatus().then((status) => {
+      setServicesReady(status.bhashini_configured || status.gemini_configured);
+    }).catch(() => {});
 
-  const handleAnalyze = () => {
-    setIsAnalyzing(true);
-    setTimeout(() => { setIsAnalyzing(false); }, 600);
+    addMessage({
+      role: "agent",
+      text: "Namaste! I am your Hyper-Local AI Business Advisor. I help rural Indian entrepreneurs with feasibility analysis, government scheme matching (PMEGP, MUDRA), financial planning, and business lifecycle support. Tell me your business idea, location, and available capital. You can speak in any Indian language!",
+      toolUsed: ["greeting"],
+    });
+  }, []);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const addMessage = (msg: Omit<ChatMessage, "id" | "timestamp">) => {
+    const newMsg: ChatMessage = {
+      ...msg,
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: Date.now(),
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    return newMsg;
   };
 
+  const playAudio = useCallback((base64Audio: string) => {
+    if (!base64Audio) return;
+    try {
+      const binaryString = atob(base64Audio);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: "audio/wav" });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => URL.revokeObjectURL(url);
+      audio.play().catch(() => {});
+    } catch {}
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64 = (reader.result as string).split(",")[1];
+          await processVoiceInput(base64);
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch {
+      addMessage({
+        role: "agent",
+        text: "Microphone access is required for voice input. Please allow microphone access or type your message instead.",
+        toolUsed: ["mic_error"],
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const processVoiceInput = async (audioBase64: string) => {
+    setIsProcessing(true);
+    try {
+      const result = await apiClient.voiceChat(audioBase64, language);
+      addMessage({
+        role: "user",
+        text: result.user_message,
+        isVoice: true,
+      });
+      addMessage({
+        role: "agent",
+        text: result.agent_response,
+        audioBase64: result.voice_audio_base64,
+        toolUsed: result.tool_used,
+      });
+      if (autoSpeak && result.voice_audio_base64) {
+        playAudio(result.voice_audio_base64);
+      }
+    } catch {
+      addMessage({
+        role: "agent",
+        text: "I could not process your voice. Please try speaking again or type your message.",
+        toolUsed: ["voice_error"],
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSendText = async () => {
+    const text = inputText.trim();
+    if (!text || isProcessing) return;
+    setInputText("");
+    addMessage({ role: "user", text, isVoice: false });
+    setIsProcessing(true);
+    try {
+      const result = await apiClient.textChat(text, language);
+      addMessage({
+        role: "agent",
+        text: result.agent_response,
+        audioBase64: result.voice_audio_base64,
+        toolUsed: result.tool_used,
+        report: result.data?.report,
+      });
+      if (autoSpeak && result.voice_audio_base64) {
+        playAudio(result.voice_audio_base64);
+      }
+    } catch {
+      addMessage({
+        role: "agent",
+        text: "Something went wrong. Please try again.",
+        toolUsed: ["error"],
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const selectedLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
+
   return (
-    <div className="min-h-screen bg-antigravity-cream flex flex-col selection:bg-antigravity-sage/30">
+    <div className="min-h-screen bg-antigravity-cream flex flex-col">
+      {/* Header */}
       <header className="border-b border-antigravity-navy/10 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-antigravity-navy text-white flex items-center justify-center shadow-subtle">
-              <span className="font-serif font-bold text-xl">A</span>
+        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-antigravity-navy text-white flex items-center justify-center shadow-subtle">
+              <span className="font-serif font-bold text-lg">A</span>
             </div>
             <div>
-              <span className="font-serif font-bold text-lg text-antigravity-navy tracking-tight block">Antigravity</span>
-              <span className="font-sans text-xs text-antigravity-navy/70 block -mt-1 font-medium">Hyper-Local AI Business Advisor</span>
+              <span className="font-serif font-bold text-sm text-antigravity-navy tracking-tight block leading-tight">Antigravity</span>
+              <span className="font-sans text-[10px] text-antigravity-navy/60 block leading-tight">AI Business Advisor</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="font-sans text-xs uppercase tracking-wider font-semibold text-antigravity-sage bg-antigravity-sage/15 px-3 py-1 rounded-full flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-antigravity-sage animate-pulse"></span>
-              Offline-Ready PWA
-            </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAutoSpeak(!autoSpeak)}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                autoSpeak ? "bg-antigravity-sage/15 text-antigravity-sage" : "bg-antigravity-navy/5 text-antigravity-navy/40"
+              }`}
+              title={autoSpeak ? "Auto-speak ON" : "Auto-speak OFF"}
+            >
+              {autoSpeak ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowLangMenu(!showLangMenu)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-antigravity-navy/5 hover:bg-antigravity-navy/10 transition-all"
+              >
+                <Globe className="w-3.5 h-3.5 text-antigravity-navy/60" />
+                <span className="font-sans text-xs font-semibold text-antigravity-navy/70">{selectedLang.native}</span>
+              </button>
+              {showLangMenu && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-antigravity-navy/10 rounded-xl shadow-elevated py-1.5 w-44 z-50">
+                  {LANGUAGES.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => { setLanguage(lang.code); setShowLangMenu(false); }}
+                      className={`w-full text-left px-3 py-1.5 font-sans text-xs flex items-center justify-between hover:bg-antigravity-cream transition-all ${
+                        language === lang.code ? "text-antigravity-orange font-semibold" : "text-antigravity-charcoal/80"
+                      }`}
+                    >
+                      <span>{lang.native}</span>
+                      <span className="text-antigravity-navy/40">{lang.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
-      <section className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
-        <span className="font-sans text-xs uppercase tracking-wider font-semibold text-antigravity-sage bg-antigravity-sage/15 px-3.5 py-1.5 rounded-full inline-block mb-4">
-          Verified Indian MSME Intelligence • SIH Edition
-        </span>
-        <h1 className="font-serif text-3xl sm:text-5xl font-bold text-antigravity-navy tracking-tight leading-tight mb-4">
-          Grounded business feasibility, real government schemes, and lifecycle support.
-        </h1>
-        <p className="font-sans text-base sm:text-lg text-antigravity-charcoal/85 max-w-3xl mx-auto leading-relaxed mb-8">
-          The platform does not merely chat or guess. We verify hyper-local feasibility, run deterministic bank calculations, match official subsidy schemes, and protect your enterprise through its journey.
-        </p>
-
-        <div className="inline-flex p-1.5 rounded-xl bg-white border border-antigravity-navy/10 shadow-subtle mb-10">
-          <button
-            onClick={() => setMode("known")}
-            className={`font-sans text-sm font-semibold px-6 py-2.5 rounded-lg transition-all ${
-              mode === "known" ? "bg-antigravity-navy text-white shadow-sm" : "text-antigravity-charcoal/70 hover:text-antigravity-navy"
-            }`}
-          >
-            Mode A: I Have a Business Idea
-          </button>
-          <button
-            onClick={() => setMode("reverse")}
-            className={`font-sans text-sm font-semibold px-6 py-2.5 rounded-lg transition-all ${
-              mode === "reverse" ? "bg-antigravity-orange text-white shadow-sm" : "text-antigravity-charcoal/70 hover:text-antigravity-orange"
-            }`}
-          >
-            Mode B: Reverse Discovery (Help Me Choose)
-          </button>
-        </div>
-
-        <div className="bg-white border border-antigravity-navy/10 rounded-2xl p-6 sm:p-8 shadow-elevated text-left">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-            <div>
-              <label className="block font-sans text-xs font-semibold text-antigravity-navy/80 uppercase tracking-wider mb-2">Locality</label>
-              <input
-                type="text"
-                value={locality}
-                onChange={(e) => setLocality(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-antigravity-navy/15 focus:border-antigravity-orange outline-none font-sans text-sm text-antigravity-charcoal bg-antigravity-cream/40"
-              />
-            </div>
-            <div>
-              <label className="block font-sans text-xs font-semibold text-antigravity-navy/80 uppercase tracking-wider mb-2">Capital / Margin (₹)</label>
-              <input
-                type="number"
-                value={capital}
-                onChange={(e) => setCapital(Number(e.target.value))}
-                className="w-full px-4 py-2.5 rounded-lg border border-antigravity-navy/15 focus:border-antigravity-orange outline-none font-sans text-sm text-antigravity-charcoal bg-antigravity-cream/40"
-              />
-            </div>
-            <div>
-              <label className="block font-sans text-xs font-semibold text-antigravity-navy/80 uppercase tracking-wider mb-2">Business Idea</label>
-              <input
-                type="text"
-                value={businessIdea}
-                onChange={(e) => setBusinessIdea(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-antigravity-navy/15 focus:border-antigravity-orange outline-none font-sans text-sm text-antigravity-charcoal bg-antigravity-cream/40"
-              />
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-antigravity-navy/10">
-            <span className="font-sans text-xs text-antigravity-navy/70 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-antigravity-sage" />
-              Grounded rule: Calculations run deterministically; zero hallucinated estimates.
-            </span>
-            <button
-              onClick={handleAnalyze}
-              className="font-sans text-sm font-semibold text-white bg-antigravity-orange hover:bg-[#c45e1f] px-8 py-3 rounded-lg shadow-md transition-all flex items-center gap-2"
-            >
-              Analyze Feasibility & Schemes <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 w-full">
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-antigravity-navy/10 pb-3 mb-8">
-          {[
-            { id: "feasibility", label: "Feasibility Score", icon: TrendingUp },
-            { id: "finance", label: "Financial Engine & EMI", icon: IndianRupee },
-            { id: "schemes", label: "Government Schemes", icon: Award },
-            { id: "time", label: "Time Machine", icon: Calendar },
-            { id: "cluster", label: "Cluster Network", icon: Users },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`font-sans text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
-                  isActive ? "bg-antigravity-navy text-white shadow-sm" : "text-antigravity-navy/70 hover:bg-antigravity-navy/5"
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? "text-antigravity-sage" : "text-antigravity-navy/50"}`} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {activeTab === "feasibility" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white border border-antigravity-navy/10 rounded-xl p-6 shadow-subtle">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-serif text-2xl font-bold text-antigravity-navy">{businessIdea} in {locality}, {state}</h2>
-                <div className="text-right">
-                  <span className="font-serif text-3xl font-bold text-antigravity-navy">78<span className="text-lg text-antigravity-navy/40 font-normal">/100</span></span>
-                  <span className="font-sans text-xs font-semibold text-antigravity-sage uppercase block">CONDITIONAL GO</span>
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+          {messages.map((msg) => (
+            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[85%] ${msg.role === "user" ? "order-1" : "order-1"}`}>
+                <div className={`flex items-start gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                    msg.role === "user"
+                      ? "bg-antigravity-orange/15 text-antigravity-orange"
+                      : "bg-antigravity-navy text-white"
+                  }`}>
+                    {msg.role === "user" ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+                  </div>
+                  <div>
+                    <div className={`p-3.5 rounded-2xl ${
+                      msg.role === "user"
+                        ? "bg-antigravity-navy text-white rounded-tr-md"
+                        : "bg-white border border-antigravity-navy/10 text-antigravity-charcoal rounded-tl-md shadow-subtle"
+                    }`}>
+                      <p className="font-sans text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                    </div>
+                    <div className={`flex items-center gap-2 mt-1 ${msg.role === "user" ? "justify-end" : ""}`}>
+                      <span className="font-sans text-[10px] text-antigravity-navy/40">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      {msg.isVoice && (
+                        <span className="font-sans text-[10px] text-antigravity-sage flex items-center gap-0.5">
+                          <Mic className="w-2.5 h-2.5" /> voice
+                        </span>
+                      )}
+                      {msg.audioBase64 && (
+                        <button
+                          onClick={() => playAudio(msg.audioBase64!)}
+                          className="font-sans text-[10px] text-antigravity-orange flex items-center gap-0.5 hover:underline"
+                        >
+                          <Volume2 className="w-2.5 h-2.5" /> listen
+                        </button>
+                      )}
+                      {msg.toolUsed && msg.toolUsed.length > 0 && !["greeting", "error", "voice_error", "mic_error", "capabilities"].includes(msg.toolUsed[0]) && (
+                        <span className="font-sans text-[10px] text-antigravity-navy/30 flex items-center gap-0.5">
+                          <Sparkles className="w-2.5 h-2.5" /> {msg.toolUsed[0]}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <p className="font-sans text-sm text-antigravity-charcoal/90 mb-6">
-                Strong capital fit (85/100) and high scheme compatibility (88/100 under PMEGP). Recommended working capital liquidity buffer: 45 days.
-              </p>
             </div>
-            <div className="bg-antigravity-navy text-white rounded-xl p-6 shadow-elevated">
-              <span className="font-sans text-xs uppercase tracking-wider font-semibold text-antigravity-sage block mb-2">Bankable Document</span>
-              <h3 className="font-serif text-2xl font-bold mb-3">29-Section Bankable DPR</h3>
-              <p className="font-sans text-xs text-white/80 leading-relaxed mb-6">
-                Conforming to RBI format with 12-month cash flows, break-even, and scheme subsidy schedules.
-              </p>
-              <button className="w-full font-sans text-sm font-semibold text-white bg-antigravity-orange hover:bg-[#c45e1f] py-3 rounded-lg shadow-md transition-all flex items-center justify-center gap-2">
-                <FileText className="w-4 h-4" /> Generate Full DPR (PDF)
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "finance" && (
-          <div className="bg-white border border-antigravity-navy/10 rounded-xl p-6 shadow-subtle">
-            <h2 className="font-serif text-2xl font-bold text-antigravity-navy mb-4">Deterministic Financial Architecture</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-              <div className="p-4 rounded-lg bg-antigravity-cream border border-antigravity-navy/10">
-                <span className="font-sans text-xs text-antigravity-navy/70 block mb-1">Project Cost</span>
-                <span className="font-serif text-2xl font-bold text-antigravity-navy">₹{projectCost.toLocaleString()}</span>
-              </div>
-              <div className="p-4 rounded-lg bg-antigravity-cream border border-antigravity-navy/10">
-                <span className="font-sans text-xs text-antigravity-navy/70 block mb-1">Margin Money</span>
-                <span className="font-serif text-2xl font-bold text-antigravity-sage">₹{capital.toLocaleString()}</span>
-              </div>
-              <div className="p-4 rounded-lg bg-antigravity-cream border border-antigravity-navy/10">
-                <span className="font-sans text-xs text-antigravity-navy/70 block mb-1">Bank Loan</span>
-                <span className="font-serif text-2xl font-bold text-antigravity-orange">₹{loanReq.toLocaleString()}</span>
-              </div>
-              <div className="p-4 rounded-lg bg-antigravity-cream border border-antigravity-navy/10">
-                <span className="font-sans text-xs text-antigravity-navy/70 block mb-1">Monthly EMI</span>
-                <span className="font-serif text-2xl font-bold text-antigravity-navy">₹{emi.toLocaleString()}</span>
+          ))}
+          {isProcessing && (
+            <div className="flex justify-start">
+              <div className="flex items-start gap-2">
+                <div className="w-7 h-7 rounded-full bg-antigravity-navy text-white flex items-center justify-center shrink-0">
+                  <Bot className="w-3.5 h-3.5" />
+                </div>
+                <div className="bg-white border border-antigravity-navy/10 p-4 rounded-2xl rounded-tl-md shadow-subtle">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 text-antigravity-sage animate-spin" />
+                    <span className="font-sans text-xs text-antigravity-navy/50">
+                      {isRecording ? "Listening..." : "Thinking..."}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+          <div ref={chatEndRef} />
+        </div>
+      </div>
 
-        {activeTab === "schemes" && (
-          <div className="bg-white border border-antigravity-navy/10 rounded-xl p-6 shadow-subtle">
-            <h2 className="font-serif text-2xl font-bold text-antigravity-navy mb-4">Verified Government Schemes</h2>
-            <div className="p-6 rounded-xl border border-antigravity-sage/40 bg-antigravity-sage/5">
-              <h3 className="font-serif text-xl font-bold text-antigravity-navy mb-2">PMEGP (Prime Minister's Employment Generation Programme)</h3>
-              <p className="font-sans text-xs text-antigravity-charcoal/85 mb-3">Rural margin subsidy up to 35% with 5% promoter equity for special categories.</p>
-              <span className="font-sans text-xs font-semibold text-antigravity-orange">Official Source: kviconline.gov.in</span>
-            </div>
+      {/* Input Bar */}
+      <div className="border-t border-antigravity-navy/10 bg-white/90 backdrop-blur-md">
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <div className="flex items-center gap-2">
+            <button
+              onMouseDown={isRecording ? stopRecording : startRecording}
+              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+                isRecording
+                  ? "bg-red-500 text-white animate-pulse shadow-lg"
+                  : "bg-antigravity-orange text-white hover:bg-[#c45e1f] shadow-md"
+              }`}
+              title={isRecording ? "Stop recording" : "Start voice input"}
+            >
+              {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            </button>
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendText()}
+              placeholder={
+                isRecording
+                  ? "Listening... speak now"
+                  : `Type or press mic to speak in ${selectedLang.native}...`
+              }
+              disabled={isProcessing}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-antigravity-navy/15 focus:border-antigravity-orange outline-none font-sans text-sm text-antigravity-charcoal bg-antigravity-cream/40 placeholder:text-antigravity-navy/30 disabled:opacity-50 transition-all"
+            />
+            <button
+              onClick={handleSendText}
+              disabled={!inputText.trim() || isProcessing}
+              className="w-11 h-11 rounded-xl bg-antigravity-navy text-white flex items-center justify-center hover:bg-antigravity-navy/90 transition-all disabled:opacity-30 shrink-0 shadow-md"
+            >
+              <Send className="w-5 h-5" />
+            </button>
           </div>
-        )}
-
-        {activeTab === "time" && (
-          <div className="bg-white border border-antigravity-navy/10 rounded-xl p-6 shadow-subtle">
-            <h2 className="font-serif text-2xl font-bold text-antigravity-navy mb-4">Time Machine: Seasonal Launch Optimizer</h2>
-            <p className="font-sans text-sm text-antigravity-charcoal/80 mb-4">Recommended Launch Window: <strong>March</strong> (Coincides with green fodder flush and peak summer dairy demand).</p>
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <span className="font-sans text-[10px] text-antigravity-navy/30 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5" />
+              All calculations are deterministic — zero hallucinated estimates
+            </span>
           </div>
-        )}
-
-        {activeTab === "cluster" && (
-          <div className="bg-white border border-antigravity-navy/10 rounded-xl p-6 shadow-subtle">
-            <h2 className="font-serif text-2xl font-bold text-antigravity-navy mb-4">Cluster Engine: Local Economic Ring</h2>
-            <p className="font-sans text-sm text-antigravity-charcoal/80">4 Complementary local suppliers identified within 12 km. Bulk feed purchasing saves ~14% monthly.</p>
-          </div>
-        )}
-      </main>
-
-      <footer className="mt-auto border-t border-antigravity-navy/10 bg-white py-6 px-4 text-center">
-        <span className="font-sans text-xs text-antigravity-navy/60">Antigravity Design System • Lora (Serif) & Montserrat (Sans) • WCAG AAA</span>
-      </footer>
+        </div>
+      </div>
     </div>
   );
 }
