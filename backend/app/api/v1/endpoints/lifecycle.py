@@ -1,5 +1,6 @@
-from fastapi import APIRouter
-from app.models.schemas import LifecycleStatus
+from typing import Any, Dict
+from fastapi import APIRouter, Query, Body
+from app.models.schemas import LifecycleStatus, PersonalDashboardData, GenerateGoalRequest, AIBusinessGoal
 from app.engines.lifecycle import LifecycleEngine
 
 router = APIRouter()
@@ -56,3 +57,34 @@ async def get_health_tips(health_score: int = 50):
             "Build reserves for seasonal demand fluctuations.",
         ]
     return {"health_score": health_score, "tips": tips}
+
+
+@router.get("/dashboard", response_model=PersonalDashboardData)
+async def get_personal_dashboard(
+    locality: str = Query("Bassi", description="Locality or town of business"),
+    state: str = Query("Rajasthan", description="State"),
+    business_idea: str = Query("Commercial Mini Dairy & Chilling Unit", description="Finalized business idea"),
+    capital: float = Query(100000.0, description="Promoter equity or margin money in INR"),
+    enterprise_name: str = Query("Ganga Dairy Parlour", description="Enterprise name"),
+):
+    return LifecycleEngine.get_personal_dashboard(
+        locality=locality,
+        state=state,
+        business_idea=business_idea,
+        capital=capital,
+        enterprise_name=enterprise_name,
+    )
+
+
+@router.post("/generate-next-goal", response_model=AIBusinessGoal)
+async def generate_next_goal(request: GenerateGoalRequest):
+    return LifecycleEngine.generate_next_ai_goal(request)
+
+
+@router.post("/reminders/{reminder_id}/respond")
+async def respond_to_reminder(
+    reminder_id: str,
+    action: str = Body(..., embed=True),
+):
+    return LifecycleEngine.respond_to_reminder(reminder_id=reminder_id, action=action)
+

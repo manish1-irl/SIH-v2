@@ -235,3 +235,79 @@ export interface ClusterNetworkRequest {
   business_idea?: string;
   enterprise_name?: string;
 }
+
+export interface LoanStage {
+  stage_id: number;
+  title: string;
+  description: string;
+  status: "completed" | "in_progress" | "pending";
+  completion_date?: string | null;
+  action_required?: string | null;
+}
+
+export interface LoanApplicationProgress {
+  application_ref: string;
+  scheme_name: string;
+  portal_name: string;
+  loan_amount: number;
+  subsidy_amount: number;
+  promoter_equity: number;
+  bank_branch: string;
+  current_stage_index: number;
+  total_stages: number;
+  overall_progress_percent: number;
+  stages: LoanStage[];
+  target_disbursement_date: string;
+}
+
+export interface AIBusinessGoal {
+  goal_id: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: "high" | "medium" | "low" | string;
+  progress_percent: number;
+  status: "completed" | "in_progress" | "pending";
+  ai_rationale: string;
+  deadline_days: number;
+  order: number;
+}
+
+export interface DashboardReminder {
+  reminder_id: string;
+  title: string;
+  category: string;
+  question: string;
+  target_metric: string;
+  urgency: "critical" | "important" | "normal" | string;
+  created_at: string;
+  status: "pending" | "confirmed" | "need_help" | "snoozed";
+}
+
+export interface PersonalDashboardData {
+  business_id: string;
+  business_name: string;
+  locality: string;
+  state: string;
+  business_idea: string;
+  capital: number;
+  project_cost: number;
+  health_score: number;
+  total_milestones_count: number;
+  completed_milestones_count: number;
+  running_goals_count: number;
+  pending_goals_count: number;
+  loan_progress: LoanApplicationProgress;
+  goals: AIBusinessGoal[];
+  reminders: DashboardReminder[];
+  metrics: HealthMetric[];
+  alerts: RiskAlert[];
+  co_pilot_status: string;
+}
+
+export interface GenerateGoalRequest {
+  business_id: string;
+  business_type: string;
+  completed_goal_ids: string[];
+}
+

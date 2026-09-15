@@ -252,6 +252,85 @@ class LifecycleStatus(BaseModel):
     next_actions: List[str]
 
 
+# --- Personal Dashboard & Loan Pipeline Models ---
+
+class LoanStage(BaseModel):
+    stage_id: int
+    title: str
+    description: str
+    status: str  # "completed", "in_progress", "pending"
+    completion_date: Optional[str] = None
+    action_required: Optional[str] = None
+
+
+class LoanApplicationProgress(BaseModel):
+    application_ref: str
+    scheme_name: str
+    portal_name: str
+    loan_amount: float
+    subsidy_amount: float
+    promoter_equity: float
+    bank_branch: str
+    current_stage_index: int
+    total_stages: int
+    overall_progress_percent: int
+    stages: List[LoanStage]
+    target_disbursement_date: str
+
+
+class DashboardReminder(BaseModel):
+    reminder_id: str
+    title: str
+    category: str
+    question: str
+    target_metric: Optional[str] = None
+    urgency: str  # "normal", "important", "critical"
+    created_at: str
+    status: str  # "pending", "confirmed", "need_help", "snoozed"
+
+
+class AIBusinessGoal(BaseModel):
+    goal_id: str
+    title: str
+    description: str
+    category: str
+    priority: str
+    progress_percent: int
+    status: str  # "pending", "in_progress", "completed"
+    ai_rationale: str
+    deadline_days: int
+    order: int
+
+
+class PersonalDashboardData(BaseModel):
+    business_id: str
+    business_name: str
+    locality: str
+    state: str
+    business_idea: str
+    capital: float
+    project_cost: float
+    health_score: int
+    total_milestones_count: int
+    completed_milestones_count: int
+    running_goals_count: int
+    pending_goals_count: int
+    loan_progress: LoanApplicationProgress
+    goals: List[AIBusinessGoal]
+    reminders: List[DashboardReminder]
+    metrics: List[HealthMetric]
+    alerts: List[RiskAlert]
+    co_pilot_status: str
+
+
+class GenerateGoalRequest(BaseModel):
+    business_id: str = "BIZ-DEFAULT"
+    locality: str = "Bassi"
+    business_idea: str = "Dairy"
+    completed_goal_ids: List[str] = []
+    current_challenges: Optional[str] = None
+
+
 # --- DPR Models ---
 
 class EvidenceObject(BaseModel):

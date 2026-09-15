@@ -11,6 +11,7 @@ from app.models.schemas import (
     FinancialPlan, FeasibilityScoreBreakdown, SchemeRecommendation,
     TimeMachineOutput, ClusterOpportunity, DPRResponse, LifecycleStatus,
     SocialCategoryEnum, GenderEnum, RecommendationEnum, EvidenceObject,
+    GenerateGoalRequest,
 )
 
 
@@ -312,3 +313,44 @@ class TestLifecycleEngine:
         assert len(status.health_metrics) > 0
         assert len(status.milestone_status) > 0
         assert len(status.next_actions) > 0
+
+    def test_get_personal_dashboard(self):
+        dash = LifecycleEngine.get_personal_dashboard(
+            locality="Bassi",
+            state="Rajasthan",
+            business_idea="Commercial Mini Dairy",
+            capital=100000.0,
+            enterprise_name="Ganga Dairy Parlour",
+        )
+        assert dash.business_name == "Ganga Dairy Parlour"
+        assert dash.locality == "Bassi"
+        assert dash.project_cost == 1000000.0
+        assert dash.capital == 100000.0
+        assert dash.loan_progress.total_stages == 5
+        assert len(dash.loan_progress.stages) == 5
+        assert dash.loan_progress.current_stage_index == 3
+        assert len(dash.goals) >= 5
+        assert any(g.status == "completed" for g in dash.goals)
+        assert len(dash.reminders) >= 3
+        assert dash.health_score > 0
+
+    def test_generate_next_ai_goal(self):
+        req = GenerateGoalRequest(
+            business_id="BIZ-12345",
+            business_type="Dairy",
+            completed_goal_ids=["GOAL-01", "GOAL-02"],
+        )
+        next_goal = LifecycleEngine.generate_next_ai_goal(req)
+        assert next_goal.goal_id.startswith("GOAL-")
+        assert next_goal.status == "pending"
+        assert next_goal.ai_rationale != ""
+        assert next_goal.order > 2
+
+    def test_respond_to_reminder(self):
+        resp_confirm = LifecycleEngine.respond_to_reminder("REM-01", "confirm")
+        assert resp_confirm["updated_status"] == "confirmed"
+        assert "verified" in resp_confirm["ai_advice"].lower()
+
+        resp_help = LifecycleEngine.respond_to_reminder("REM-02", "help")
+        assert resp_help["updated_status"] == "need_help"
+

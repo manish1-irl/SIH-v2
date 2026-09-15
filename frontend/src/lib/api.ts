@@ -7,6 +7,9 @@ import {
   ConcessionalLoanResponse,
   ClusterNetworkRequest,
   ClusterNetworkResponse,
+  PersonalDashboardData,
+  GenerateGoalRequest,
+  AIBusinessGoal,
 } from "@/types";
 import { offlineDb } from "./db";
 
@@ -121,4 +124,60 @@ export const apiClient = {
     if (!res.ok) throw new Error(`Cluster network error ${res.status}`);
     return res.json();
   },
+
+  async reverseFeasibility(capital: number, location: string, state: string = "Rajasthan"): Promise<ReverseFeasibilityRecommendation[]> {
+    const res = await fetch(`${API_BASE}/api/v1/advisor/reverse-feasibility`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        capital,
+        location,
+        state,
+        business_idea: "General",
+      }),
+    });
+    if (!res.ok) throw new Error(`Reverse feasibility error ${res.status}`);
+    return res.json();
+  },
+
+  async getPersonalDashboard(params?: {
+    locality?: string;
+    state?: string;
+    business_idea?: string;
+    capital?: number;
+    enterprise_name?: string;
+  }): Promise<PersonalDashboardData> {
+    const query = new URLSearchParams();
+    if (params?.locality) query.append("locality", params.locality);
+    if (params?.state) query.append("state", params.state);
+    if (params?.business_idea) query.append("business_idea", params.business_idea);
+    if (params?.capital) query.append("capital", params.capital.toString());
+    if (params?.enterprise_name) query.append("enterprise_name", params.enterprise_name);
+
+    const qs = query.toString() ? `?${query.toString()}` : "";
+    const res = await fetch(`${API_BASE}/api/v1/lifecycle/dashboard${qs}`);
+    if (!res.ok) throw new Error(`Personal dashboard error ${res.status}`);
+    return res.json();
+  },
+
+  async generateNextGoal(data: GenerateGoalRequest): Promise<AIBusinessGoal> {
+    const res = await fetch(`${API_BASE}/api/v1/lifecycle/generate-next-goal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Generate next goal error ${res.status}`);
+    return res.json();
+  },
+
+  async respondToReminder(reminderId: string, action: string): Promise<{ reminder_id: string; action: string; updated_status: string; ai_advice: string }> {
+    const res = await fetch(`${API_BASE}/api/v1/lifecycle/reminders/${reminderId}/respond`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (!res.ok) throw new Error(`Reminder response error ${res.status}`);
+    return res.json();
+  },
 };
+

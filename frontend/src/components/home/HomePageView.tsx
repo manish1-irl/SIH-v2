@@ -26,8 +26,8 @@ interface HomePageViewProps {
   onStartRecording: () => void;
   onStopRecording: () => void;
   onSearchSubmit: (query: string) => void;
-  onSelectCapability: (capability: "schemes" | "feasibility" | "cluster" | "dpr", promptText: string) => void;
-  onNavigate: (view: "home" | "feasibility" | "schemes" | "explore") => void;
+  onSelectCapability: (capability: "schemes" | "feasibility" | "cluster" | "dpr" | "dashboard", promptText: string) => void;
+  onNavigate: (view: "home" | "feasibility" | "schemes" | "explore" | "dashboard") => void;
 }
 
 export default function HomePageView({
@@ -106,6 +106,13 @@ export default function HomePageView({
             className="font-sans text-xs sm:text-sm font-medium tracking-wide text-antigravity-charcoal/80 hover:text-antigravity-orange transition-colors py-1 drop-shadow-sm"
           >
             Explore
+          </button>
+          <button
+            onClick={() => onNavigate("dashboard")}
+            className="font-sans text-xs sm:text-sm font-semibold tracking-wide text-antigravity-charcoal/90 hover:text-antigravity-orange transition-colors py-1 drop-shadow-sm flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/50 hover:bg-white/80 border border-white/60"
+          >
+            <span>Dashboard</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
           </button>
         </nav>
 

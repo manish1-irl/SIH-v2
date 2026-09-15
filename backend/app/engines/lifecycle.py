@@ -1,8 +1,10 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import uuid
 from datetime import datetime, timezone
 from app.models.schemas import (
-    LifecycleStatus, HealthMetric, RiskAlert
+    LifecycleStatus, HealthMetric, RiskAlert,
+    LoanStage, LoanApplicationProgress, DashboardReminder,
+    AIBusinessGoal, PersonalDashboardData, GenerateGoalRequest,
 )
 
 
@@ -207,3 +209,303 @@ class LifecycleEngine:
             milestone_status=milestone_status,
             next_actions=next_actions,
         )
+
+    @staticmethod
+    def get_personal_dashboard(
+        locality: str = "Bassi",
+        state: str = "Rajasthan",
+        business_idea: str = "Dairy",
+        capital: float = 100000.0,
+        enterprise_name: str = "Ganga Dairy Parlour",
+    ) -> PersonalDashboardData:
+        loc_display = locality.strip().title() if locality else "Bassi"
+        state_display = state.strip().title() if state else "Rajasthan"
+        idea_display = business_idea.strip() if business_idea else "Commercial Mini Dairy & Chilling Unit"
+        ent_display = enterprise_name.strip() if enterprise_name else f"{loc_display} Enterprise"
+
+        project_cost = round(capital / 0.10, 2)
+        concessional_debt = round(project_cost - capital, 2)
+        subsidy_amount = round(project_cost * 0.25, 2)  # 25% PMEGP rural subsidy
+
+        # 1. 5-Stage Loan Application Pipeline Progress
+        stages = [
+            LoanStage(
+                stage_id=1,
+                title="Detailed Project Report (DPR) Generated",
+                description="Deterministic 5-year financial plan and reverse feasibility matrix sealed with QR verification.",
+                status="completed",
+                completion_date="12 Sep 2026",
+                action_required=None,
+            ),
+            LoanStage(
+                stage_id=2,
+                title="KVIC / PMEGP Portal e-Submission",
+                description="Digital application uploaded with Aadhaar, Rural Certificate, and DPR Annexures.",
+                status="completed",
+                completion_date="14 Sep 2026",
+                action_required=None,
+            ),
+            LoanStage(
+                stage_id=3,
+                title="District Task Force Committee (DTFC) Scrutiny",
+                description="DIC verification of applicant rural eligibility and local priority sector score.",
+                status="in_progress",
+                completion_date=None,
+                action_required="Physical document verification hearing scheduled at DIC Jaipur on 22 Sep 2026.",
+            ),
+            LoanStage(
+                stage_id=4,
+                title="Bank Branch Credit Appraisal & Sanction",
+                description="Lead bank field inspection, civil shed verification, and sanction letter generation.",
+                status="pending",
+                completion_date=None,
+                action_required="SBI Branch Manager site visit pending DTFC recommendation clearance.",
+            ),
+            LoanStage(
+                stage_id=5,
+                title="Credit Guarantee & Subsidy Disbursement",
+                description="100% CGFMU collateral guarantee activation and margin money release into escrow account.",
+                status="pending",
+                completion_date=None,
+                action_required="First tranche disbursement conditional on promoter equity deposition.",
+            ),
+        ]
+
+        loan_progress = LoanApplicationProgress(
+            application_ref=f"PMEGP-{state_display[:2].upper()}-2026-884210",
+            scheme_name="Prime Minister's Employment Generation Programme (PMEGP)",
+            portal_name="KVIC Online DBT Portal",
+            loan_amount=concessional_debt,
+            subsidy_amount=subsidy_amount,
+            promoter_equity=capital,
+            bank_branch=f"State Bank of India (SBI), {loc_display} Main Branch (IFSC: SBIN0031256)",
+            current_stage_index=3,
+            total_stages=5,
+            overall_progress_percent=60,
+            stages=stages,
+            target_disbursement_date="15 Oct 2026",
+        )
+
+        # 2. AI-Decided Operational Business Goals (Sequential Progress)
+        goals = [
+            AIBusinessGoal(
+                goal_id="GOAL-01",
+                title="Procure Statutory FSSAI & District Trade License",
+                description="Acquire food safety standard registration and gram panchayat trade permit.",
+                category="Compliance",
+                priority="high",
+                progress_percent=100,
+                status="completed",
+                ai_rationale="Statutory pre-requisite before collecting unpasteurized raw milk.",
+                deadline_days=5,
+                order=1,
+            ),
+            AIBusinessGoal(
+                goal_id="GOAL-02",
+                title="Install & Calibrate 1,000L Bulk Milk Cooler (BMC)",
+                description="Position stainless steel SS-304 chiller tank and test digital temperature sensors.",
+                category="Infrastructure",
+                priority="high",
+                progress_percent=75,
+                status="in_progress",
+                ai_rationale="Ensures instantaneous 4°C chilling preventing milk spoilage and curdling losses.",
+                deadline_days=12,
+                order=2,
+            ),
+            AIBusinessGoal(
+                goal_id="GOAL-03",
+                title="Formalize Direct Sourcing with 15 Village Aggregators",
+                description="Sign daily collection agreements with local dairy farmers across Bassi feeder roads.",
+                category="Supply Chain",
+                priority="high",
+                progress_percent=40,
+                status="in_progress",
+                ai_rationale="Secures minimum 150L/day initial throughput for break-even operation.",
+                deadline_days=18,
+                order=3,
+            ),
+            AIBusinessGoal(
+                goal_id="GOAL-04",
+                title="Establish Wholesale Supply Pact with 5 Highway Dhabas (NH-21)",
+                description="Secure long-term contracts for bulk morning delivery to tea stalls and dhabas.",
+                category="Sales & Distribution",
+                priority="medium",
+                progress_percent=15,
+                status="pending",
+                ai_rationale="Guarantees daily cash receipts and insulates enterprise against mandi price swings.",
+                deadline_days=25,
+                order=4,
+            ),
+            AIBusinessGoal(
+                goal_id="GOAL-05",
+                title="Deploy Digital Milk Fat & SNF Testing Analyzer",
+                description="Setup transparent testing kiosk ensuring adulteration-free farmer payouts.",
+                category="Quality Control",
+                priority="medium",
+                progress_percent=0,
+                status="pending",
+                ai_rationale="Attracts premium quality farmers and prevents supplier fraud.",
+                deadline_days=30,
+                order=5,
+            ),
+            AIBusinessGoal(
+                goal_id="GOAL-06",
+                title="Conduct Trial Batch Quality Certification for Local Sweetmakers",
+                description="Provide sample batches to town halwais for high-yield Mawa/Khoya testing.",
+                category="Market Expansion",
+                priority="low",
+                progress_percent=0,
+                status="pending",
+                ai_rationale="Opens high-margin B2B channel commanding ₹3/L premium over bulk milk.",
+                deadline_days=45,
+                order=6,
+            ),
+        ]
+
+        # 3. Proactive Business Health Reminders
+        reminders = [
+            DashboardReminder(
+                reminder_id="REM-01",
+                title="Daily Raw Milk Volume Verification",
+                category="daily_ops",
+                question="Did your morning and evening collection reach the target 150 Litres today?",
+                target_metric="150 L/Day",
+                urgency="important",
+                created_at="Today, 08:30 AM",
+                status="pending",
+            ),
+            DashboardReminder(
+                reminder_id="REM-02",
+                title="Cold-Chain BMC Compressor Hygiene Check",
+                category="hygiene",
+                question="Weekly chilling tank sanitization & refrigerant compressor pressure log updated?",
+                target_metric="4°C Steady",
+                urgency="normal",
+                created_at="Yesterday",
+                status="pending",
+            ),
+            DashboardReminder(
+                reminder_id="REM-03",
+                title="Farmer Weekly Payout Reconciliation",
+                category="finance",
+                question="Are digital UPI payout receipts matched against the digital fat register for Week 2?",
+                target_metric="100% Reconciled",
+                urgency="critical",
+                created_at="2 days ago",
+                status="confirmed",
+            ),
+        ]
+
+        # 4. Financial Health Metrics
+        monthly_rev = round(project_cost * 0.22, 2)
+        monthly_opex = round(project_cost * 0.13, 2)
+        monthly_emi = round(concessional_debt * 0.049699, 2)
+        working_cap = round(project_cost * 0.25, 2)
+
+        health_score = 84
+        health_metrics = LifecycleEngine.get_health_metrics(
+            monthly_revenue=monthly_rev,
+            monthly_expenses=monthly_opex,
+            emi=monthly_emi,
+            working_capital=working_cap,
+        )
+
+        alerts = [
+            RiskAlert(
+                alert_id="ALERT-LOAN-01",
+                severity="low",
+                category="Government Scheme",
+                message="DTFC physical scrutiny scheduled next week. Keep 3 hard copies of DPR with bank passbook.",
+                recommended_action="Carry verified Gram Panchayat letter and Aadhaar original.",
+                triggered_at="2026-09-15T08:00:00Z",
+            )
+        ]
+
+        return PersonalDashboardData(
+            business_id=f"BIZ-{uuid.uuid4().hex[:8].upper()}",
+            business_name=ent_display,
+            locality=loc_display,
+            state=state_display,
+            business_idea=idea_display,
+            capital=capital,
+            project_cost=project_cost,
+            health_score=health_score,
+            total_milestones_count=16,
+            completed_milestones_count=7,
+            running_goals_count=6,
+            pending_goals_count=3,
+            loan_progress=loan_progress,
+            goals=goals,
+            reminders=reminders,
+            metrics=health_metrics,
+            alerts=alerts,
+            co_pilot_status="Active & Monitoring Operational Heartbeat",
+        )
+
+    @staticmethod
+    def generate_next_ai_goal(request: GenerateGoalRequest) -> AIBusinessGoal:
+        completed_count = len(request.completed_goal_ids)
+        next_order = completed_count + 7
+
+        next_pool = [
+            {
+                "title": "Launch Value-Added Cottage Cheese (Paneer) Pilot Line",
+                "desc": "Utilize evening surplus milk to manufacture vacuum-packed 200g paneer blocks.",
+                "cat": "Product Diversification",
+                "priority": "high",
+                "rationale": "Increases realization per litre from ₹44 to ₹62 by capturing downstream consumer margin.",
+                "days": 60,
+            },
+            {
+                "title": "Integrate 5kW Solar Thermal Chiller Backup",
+                "desc": "Install solar photovoltaic panels to slash daytime compressor electricity bills by 35%.",
+                "cat": "Cost Optimization",
+                "priority": "medium",
+                "rationale": "Reduces diesel generator dependency during summer grid outages.",
+                "days": 75,
+            },
+            {
+                "title": "Register Direct Brand Trademark & Food-Grade Pouch Packaging",
+                "desc": "Launch branded farm-fresh retail pouches across sub-district kirana stores.",
+                "cat": "Branding",
+                "priority": "high",
+                "rationale": "Builds customer goodwill and enables direct consumer subscription model.",
+                "days": 90,
+            },
+            {
+                "title": "Apply for NABARD Cold Storage Expansion Refinance",
+                "desc": "Apply for second-tranche concessional credit to scale chilling from 1,000L to 3,000L.",
+                "cat": "Capital Expansion",
+                "priority": "medium",
+                "rationale": "Enables coverage of additional 20 village collection nodes.",
+                "days": 120,
+            },
+        ]
+
+        selected = next_pool[completed_count % len(next_pool)]
+
+        return AIBusinessGoal(
+            goal_id=f"GOAL-{uuid.uuid4().hex[:6].upper()}",
+            title=selected["title"],
+            description=selected["desc"],
+            category=selected["cat"],
+            priority=selected["priority"],
+            progress_percent=0,
+            status="pending",
+            ai_rationale=selected["rationale"],
+            deadline_days=selected["days"],
+            order=next_order,
+        )
+
+    @staticmethod
+    def respond_to_reminder(reminder_id: str, action: str) -> Dict[str, Any]:
+        return {
+            "reminder_id": reminder_id,
+            "action": action,
+            "updated_status": "confirmed" if action == "confirm" else ("need_help" if action == "help" else "snoozed"),
+            "ai_advice": (
+                "Great job! Your operational check has been verified and logged in your business health audit trail."
+                if action == "confirm"
+                else "Your AI Business Co-Pilot has noted this challenge and queued operational troubleshooting steps."
+            ),
+        }

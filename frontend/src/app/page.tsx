@@ -13,7 +13,10 @@ import HomePageView from "@/components/home/HomePageView";
 import FeasibilityMatrixFlow from "@/components/feasibility/FeasibilityMatrixFlow";
 import SchemeCalculatorFlow from "@/components/schemes/SchemeCalculatorFlow";
 import ClusterNetworkFlow from "@/components/cluster/ClusterNetworkFlow";
+import PersonalDashboardView from "@/components/dashboard/PersonalDashboardView";
+import { ReverseDiscovery } from "@/components/ReverseDiscovery";
 import { getCurrentUser, logoutUser, UserProfile } from "@/lib/supabase";
+import { ReverseFeasibilityRecommendation } from "@/types";
 
 interface ChatMessage {
   id: string;
@@ -24,6 +27,8 @@ interface ChatMessage {
   timestamp: number;
   toolUsed?: string[];
   report?: any;
+  reverseRecs?: ReverseFeasibilityRecommendation[];
+  showProceedToDashboard?: boolean;
 }
 
 const LANGUAGES = [
@@ -44,7 +49,7 @@ const LANGUAGES = [
 export default function HomePage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [activeView, setActiveView] = useState<"home" | "schemes" | "feasibility" | "cluster" | "dpr" | "chat" | "explore">("home");
+  const [activeView, setActiveView] = useState<"home" | "schemes" | "feasibility" | "cluster" | "dpr" | "chat" | "explore" | "dashboard">("home");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -183,6 +188,25 @@ export default function HomePage() {
     addMessage({ role: "user", text, isVoice: false });
     setIsProcessing(true);
     try {
+      const lower = text.toLowerCase();
+      const isReverseFeasibility =
+        lower.includes("recommend") ||
+        lower.includes("suggest") ||
+        lower.includes("which business") ||
+        lower.includes("what business") ||
+        lower.includes("reverse") ||
+        lower.includes("business idea") ||
+        (lower.includes("capital") && !lower.includes("dairy") && !lower.includes("oil"));
+
+      const isDpr = lower.includes("dpr") || lower.includes("detailed project report") || lower.includes("finalize");
+
+      let reverseRecs: ReverseFeasibilityRecommendation[] | undefined = undefined;
+      if (isReverseFeasibility) {
+        try {
+          reverseRecs = await apiClient.reverseFeasibility(100000, "Bassi", "Rajasthan");
+        } catch {}
+      }
+
       const result = await apiClient.textChat(text, language);
       addMessage({
         role: "agent",
@@ -190,6 +214,8 @@ export default function HomePage() {
         audioBase64: result.voice_audio_base64,
         toolUsed: result.tool_used,
         report: result.data?.report,
+        reverseRecs,
+        showProceedToDashboard: isDpr || Boolean(result.tool_used?.includes("tool_06_generate_dpr")),
       });
       if (autoSpeak && result.voice_audio_base64) {
         playAudio(result.voice_audio_base64);
@@ -209,6 +235,25 @@ export default function HomePage() {
     addMessage({ role: "user", text: queryText, isVoice: false });
     setIsProcessing(true);
     try {
+      const lower = queryText.toLowerCase();
+      const isReverseFeasibility =
+        lower.includes("recommend") ||
+        lower.includes("suggest") ||
+        lower.includes("which business") ||
+        lower.includes("what business") ||
+        lower.includes("reverse") ||
+        lower.includes("business idea") ||
+        (lower.includes("capital") && !lower.includes("dairy") && !lower.includes("oil"));
+
+      const isDpr = lower.includes("dpr") || lower.includes("detailed project report") || lower.includes("finalize");
+
+      let reverseRecs: ReverseFeasibilityRecommendation[] | undefined = undefined;
+      if (isReverseFeasibility) {
+        try {
+          reverseRecs = await apiClient.reverseFeasibility(100000, "Bassi", "Rajasthan");
+        } catch {}
+      }
+
       const result = await apiClient.textChat(queryText, language);
       addMessage({
         role: "agent",
@@ -216,6 +261,8 @@ export default function HomePage() {
         audioBase64: result.voice_audio_base64,
         toolUsed: result.tool_used,
         report: result.data?.report,
+        reverseRecs,
+        showProceedToDashboard: isDpr || Boolean(result.tool_used?.includes("tool_06_generate_dpr")),
       });
       if (autoSpeak && result.voice_audio_base64) {
         playAudio(result.voice_audio_base64);
@@ -294,8 +341,7 @@ export default function HomePage() {
           handleTriggerQuery("Calculate government scheme subsidies (PMEGP, MUDRA, PMFME, PM Vishwakarma) and bank loan eligibility for my business.");
         }}
         onProceedToDpr={() => {
-          setActiveView("dpr");
-          handleTriggerQuery("Generate DPR (Detailed Project Report) for bank loan submission.");
+          setActiveView("dashboard");
         }}
       />
     );
@@ -309,8 +355,7 @@ export default function HomePage() {
           setActiveView("feasibility");
         }}
         onProceedToDpr={() => {
-          setActiveView("dpr");
-          handleTriggerQuery("Generate DPR (Detailed Project Report) for bank loan submission.");
+          setActiveView("dashboard");
         }}
       />
     );
@@ -327,9 +372,21 @@ export default function HomePage() {
           setActiveView("feasibility");
         }}
         onProceedToDpr={() => {
-          setActiveView("dpr");
-          handleTriggerQuery("Generate DPR (Detailed Project Report) for bank loan submission.");
+          setActiveView("dashboard");
         }}
+      />
+    );
+  }
+
+  if (activeView === "dashboard") {
+    return (
+      <PersonalDashboardView
+        currentUser={currentUser}
+        onBackToHome={() => setActiveView("home")}
+        onLogout={handleLogout}
+        onOpenSchemes={() => setActiveView("schemes")}
+        onOpenFeasibility={() => setActiveView("feasibility")}
+        onOpenExplore={() => setActiveView("cluster")}
       />
     );
   }
@@ -420,6 +477,19 @@ export default function HomePage() {
             >
               Explore
             </button>
+            <button
+              onClick={() => {
+                setActiveView("dashboard");
+              }}
+              className={`font-sans text-xs font-semibold tracking-wide transition-colors py-1 flex items-center gap-1.5 ${
+                (activeView as string) === "dashboard"
+                  ? "text-antigravity-orange border-b-2 border-antigravity-orange"
+                  : "text-antigravity-charcoal/70 hover:text-antigravity-orange"
+              }`}
+            >
+              <span>Dashboard</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+            </button>
           </nav>
 
           {/* User Status & Controls */}
@@ -502,6 +572,37 @@ export default function HomePage() {
                     }`}>
                       <p className="font-sans text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                     </div>
+
+                    {msg.reverseRecs && msg.reverseRecs.length > 0 && (
+                      <div className="mt-3">
+                        <ReverseDiscovery
+                          recommendations={msg.reverseRecs}
+                          onSelectBusiness={(biz) => {
+                            handleTriggerQuery(`I select ${biz}. Please run a full 5-section feasibility analysis and prepare the loan schedule.`);
+                            setActiveView("feasibility");
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {msg.showProceedToDashboard && (
+                      <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-[#0A2540] to-[#2D5A27] text-white shadow-md">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Sparkles className="w-4 h-4 text-[#D96B27]" />
+                          <h4 className="font-serif font-bold text-sm">Enterprise Initialized & DPR Finalized</h4>
+                        </div>
+                        <p className="font-sans text-xs text-white/80 mb-3">
+                          Your Detailed Project Report has been digitally sealed. You can now access your live personal dashboard to track the 5-stage government loan pipeline and AI business goals.
+                        </p>
+                        <button
+                          onClick={() => setActiveView("dashboard")}
+                          className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-neutral-100 text-[#0A2540] font-sans text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+                        >
+                          <span>Open Personal Dashboard & Loan Pipeline</span>
+                          <span>&rarr;</span>
+                        </button>
+                      </div>
+                    )}
                     <div className={`flex items-center gap-2 mt-1 ${msg.role === "user" ? "justify-end" : ""}`}>
                       <span className="font-sans text-[10px] text-antigravity-navy/40">
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
