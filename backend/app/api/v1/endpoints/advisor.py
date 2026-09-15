@@ -1,4 +1,6 @@
+from io import BytesIO
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from app.models.schemas import (
     BusinessAdvisorRequest, FeasibilityReportResponse, ReverseFeasibilityRecommendation,
     EvidenceObject, FinancialPlan, RecommendationEnum, SWOTAnalysis,
@@ -122,12 +124,7 @@ async def generate_dpr(request: BusinessAdvisorRequest):
         business_category=request.business_idea or "general",
     )
     evidence = EvidenceObject(
-        user_inputs={
-            "locality": request.locality,
-            "state": request.state,
-            "capital": request.capital,
-            "business_idea": request.business_idea,
-        },
+        user_inputs=request.model_dump(),
         financial_data=financial_plan,
         scheme_data=schemes,
         time_machine=time_machine,
@@ -137,6 +134,62 @@ async def generate_dpr(request: BusinessAdvisorRequest):
     )
     dpr = DPREngine.generate_29_section_dpr(evidence, applicant_name="Entrepreneur")
     return dpr
+
+
+@router.get("/dpr/download-pdf")
+async def download_dpr_pdf_get(
+    capital: float = 100000.0,
+    business_idea: str = "Dairy Micro-Enterprise",
+    locality: str = "Alwar",
+    state: str = "Rajasthan",
+    applicant_name: str = "Entrepreneur",
+):
+    financial_plan = DeterministicFinancialEngine.generate_financial_plan(capital=capital, business_category=business_idea)
+    schemes = SchemeEngine.match_schemes(project_cost=financial_plan.project_cost, business_category=business_idea)
+    feasibility = FeasibilityEngine.calculate_feasibility(capital=capital, business_idea=business_idea, locality=locality, state=state, demographics={})
+    time_machine = TimeMachineEngine.analyze_timing(business_category=business_idea)
+    clusters = ClusterEngine.find_clusters(locality=locality, business_category=business_idea)
+    evidence = EvidenceObject(
+        user_inputs={"locality": locality, "state": state, "capital": capital, "business_idea": business_idea},
+        financial_data=financial_plan,
+        scheme_data=schemes,
+        time_machine=time_machine,
+        cluster_data=clusters,
+        feasibility_scores=feasibility,
+        retrieved_at=datetime.now(timezone.utc).isoformat(),
+    )
+    dpr = DPREngine.generate_29_section_dpr(evidence, applicant_name=applicant_name)
+    pdf_bytes = DPREngine.generate_pdf_bytes(dpr)
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=DPR-{dpr.dpr_id}.pdf"},
+    )
+
+
+@router.post("/dpr/download-pdf")
+async def download_dpr_pdf_post(request: BusinessAdvisorRequest, applicant_name: str = "Entrepreneur"):
+    financial_plan = DeterministicFinancialEngine.generate_financial_plan(capital=request.capital, business_category=request.business_idea or "general")
+    schemes = SchemeEngine.match_schemes(project_cost=financial_plan.project_cost, business_category=request.business_idea or "general", social_category=request.social_category, gender=request.gender)
+    feasibility = FeasibilityEngine.calculate_feasibility(capital=request.capital, business_idea=request.business_idea or "general", locality=request.locality, state=request.state, demographics={})
+    time_machine = TimeMachineEngine.analyze_timing(business_category=request.business_idea or "general")
+    clusters = ClusterEngine.find_clusters(locality=request.locality, business_category=request.business_idea or "general")
+    evidence = EvidenceObject(
+        user_inputs=request.model_dump(),
+        financial_data=financial_plan,
+        scheme_data=schemes,
+        time_machine=time_machine,
+        cluster_data=clusters,
+        feasibility_scores=feasibility,
+        retrieved_at=datetime.now(timezone.utc).isoformat(),
+    )
+    dpr = DPREngine.generate_29_section_dpr(evidence, applicant_name=applicant_name)
+    pdf_bytes = DPREngine.generate_pdf_bytes(dpr)
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=DPR-{dpr.dpr_id}.pdf"},
+    )
 
 
 def _build_swot(feasibility, financial_plan, schemes, request):

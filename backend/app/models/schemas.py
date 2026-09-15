@@ -95,6 +95,13 @@ class ReverseFeasibilityRecommendation(BaseModel):
     market_fit: str
     risk_level: str
     reason: List[str]
+    project_cost: Optional[float] = None
+    own_contribution: Optional[float] = None
+    bank_loan: Optional[float] = None
+    monthly_emi: Optional[float] = None
+    subsidy_amount: Optional[float] = None
+    scheme_name: Optional[str] = None
+    expected_monthly_net_profit: Optional[float] = None
 
 
 # --- Scheme Models ---

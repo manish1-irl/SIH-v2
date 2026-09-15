@@ -40,14 +40,20 @@ class BhashiniClient:
         return bool(self.inference_key or self.api_key)
 
     def _get_headers(self) -> dict:
-        key = self.inference_key or self.api_key
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-        if key:
-            headers["Authorization"] = key
+        # Authorization header gets the inference key (or fallback to api key)
+        auth_key = self.inference_key or self.api_key
+        if auth_key:
+            headers["Authorization"] = auth_key
+        # UDYAT / ULCA API Key header
+        if self.api_key:
+            headers["ulcaApiKey"] = self.api_key
+        # User ID headers (both standard variations)
         if self.user_id:
+            headers["userID"] = self.user_id
             headers["X-Userid"] = self.user_id
         return headers
 
@@ -198,6 +204,9 @@ class BhashiniClient:
     ) -> str:
         if target_language == "en":
             return await self.text_to_speech(text, "en", gender)
+        # If response is already in the target Indic script, synthesize voice directly
+        if any(ord(c) > 127 for c in text):
+            return await self.text_to_speech(text, target_language, gender)
         translated = await self.translate(text, "en", target_language)
         final_text = translated if translated else text
         return await self.text_to_speech(final_text, target_language, gender)

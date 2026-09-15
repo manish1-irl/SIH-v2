@@ -1,6 +1,14 @@
 import os
-from pydantic_settings import BaseSettings
+from pathlib import Path
 from typing import List
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
+
+# Load .env from backend directory or project root
+_backend_dir = Path(__file__).resolve().parent.parent.parent
+load_dotenv(_backend_dir / ".env")
+load_dotenv()
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Hyper-Local AI Business Advisor"

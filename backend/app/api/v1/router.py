@@ -9,3 +9,4 @@ api_router.include_router(clusters.router, prefix="/clusters", tags=["Clusters"]
 api_router.include_router(lifecycle.router, prefix="/lifecycle", tags=["Lifecycle"])
 api_router.include_router(chat.router, prefix="/chat", tags=["Chat"])
 api_router.include_router(voice.router, prefix="/voice", tags=["Voice"])
+api_router.add_api_route("/reports/download-pdf", advisor.download_dpr_pdf_get, methods=["GET"], tags=["Reports"])

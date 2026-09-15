@@ -91,38 +91,107 @@ async def text_to_speech(request: TextToVoiceRequest):
     return {"audio_base64": audio_b64, "language": request.language}
 
 
+async def transcribe_audio_gemini(audio_base64: str, language: str = "hi") -> str:
+    from app.core.config import settings
+    if not settings.GEMINI_API_KEY or not audio_base64:
+        return ""
+    mime = "audio/webm"
+    if audio_base64.startswith("UklGR"):
+        mime = "audio/wav"
+    models = ["gemini-3.5-flash", "gemini-flash-latest"]
+    prompt = (
+        f"Transcribe the spoken words in this audio accurately. "
+        f"The user is speaking in an Indian language or English (language hint: {language}). "
+        f"Return ONLY the transcribed words in their spoken language or script. "
+        f"If the audio contains silence, noise, or no recognizable words, return SILENCE."
+    )
+    payload = {
+        "contents": [{
+            "parts": [
+                {"inlineData": {"mimeType": mime, "data": audio_base64}},
+                {"text": prompt},
+            ]
+        }]
+    }
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for model in models:
+                try:
+                    r = await client.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.GEMINI_API_KEY}",
+                        json=payload,
+                    )
+                    if r.status_code == 200:
+                        data = r.json()
+                        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if text and "SILENCE" not in text.upper():
+                            return text.strip()
+                except Exception as me:
+                    print(f"[Gemini ASR] Model {model} request error: {me}")
+    except Exception as e:
+        print(f"[Gemini ASR] Transcription exception: {e}")
+    return ""
+
+
 @router.post("/voice-chat")
 async def voice_chat(request: ConversationalTurnRequest):
     orchestrator = CrewOrchestrator()
     user_text = request.message or ""
 
     if request.audio_base64 and not user_text:
+        # 1. Try Bhashini ASR first if configured
         if bhashini_client.is_configured:
-            user_text = await bhashini_client.voice_to_english_text(
-                audio_base64=request.audio_base64,
-                source_language=request.language,
-            )
+            try:
+                import asyncio
+                user_text = await asyncio.wait_for(
+                    bhashini_client.voice_to_english_text(
+                        audio_base64=request.audio_base64,
+                        source_language=request.language,
+                    ),
+                    timeout=4.0,
+                )
+            except Exception:
+                user_text = ""
+
+        # 2. Multimodal Gemini ASR fallback (transcribes audio/webm and audio/wav directly)
+        if not user_text:
+            user_text = await transcribe_audio_gemini(request.audio_base64, request.language)
+
         if not user_text:
             return JSONResponse(
                 status_code=422,
-                content={"error": "Could not process voice. Please try typing instead."},
+                content={"error": "Could not detect clear speech. Please speak closer to the mic or type your message."},
             )
 
     if not user_text:
         return JSONResponse(status_code=400, content={"error": "No message provided."})
 
     session = _conversation_sessions.get(request.user_id, {"context": {}, "turns": []})
-    response_data = await orchestrator.handle_chat(user_text, session["context"])
+    response_data = await orchestrator.handle_chat(user_text, session["context"], language=request.language)
+
+    # Update session context with newly extracted entities for multi-turn conversational memory
+    if "entities" in response_data:
+        extracted = {k: v for k, v in response_data["entities"].items() if v is not None and k != "needs_input"}
+        session["context"].update(extracted)
+
     session["turns"].append({"user": user_text, "agent": response_data.get("response", "")})
     _conversation_sessions[request.user_id] = session
 
     response_text = response_data.get("response", "")
     voice_audio = ""
     if bhashini_client.is_configured and response_text:
-        voice_audio = await bhashini_client.english_text_to_voice(
-            text=response_text,
-            target_language=request.language,
-        )
+        try:
+            import asyncio
+            voice_audio = await asyncio.wait_for(
+                bhashini_client.english_text_to_voice(
+                    text=response_text,
+                    target_language=request.language,
+                ),
+                timeout=5.0,
+            )
+        except Exception:
+            voice_audio = ""
 
     return {
         "user_message": user_text,

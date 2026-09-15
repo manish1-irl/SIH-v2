@@ -6,6 +6,7 @@ from app.engines.time_machine import TimeMachineEngine
 from app.engines.cluster import ClusterEngine
 from app.engines.dpr import DPREngine
 from app.engines.lifecycle import LifecycleEngine
+from app.engines.location_intelligence import LocationIntelligenceEngine
 from app.models.schemas import EvidenceObject, SocialCategoryEnum, GenderEnum
 
 
@@ -55,10 +56,14 @@ class AgentTools:
     def tool_05_reverse_feasibility(
         capital: float,
         locality: str,
-        state: str,
+        state: str = "Rajasthan",
     ) -> Dict[str, Any]:
         recs = FeasibilityEngine.run_reverse_feasibility(capital, locality, state)
-        return {"recommendations": [r.model_dump() for r in recs]}
+        loc_profile = LocationIntelligenceEngine.analyze_locality(locality, state)
+        return {
+            "location_profile": loc_profile.model_dump(),
+            "recommendations": [r.model_dump() for r in recs],
+        }
 
     @staticmethod
     def tool_06_match_schemes(
@@ -307,3 +312,11 @@ class AgentTools:
             "verdict": feasibility.verdict.value,
             "overall_score": feasibility.overall_score,
         }
+
+    @staticmethod
+    def tool_24_location_intelligence(
+        locality: str,
+        state: str = "Rajasthan",
+    ) -> Dict[str, Any]:
+        loc_profile = LocationIntelligenceEngine.analyze_locality(locality, state)
+        return {"location_profile": loc_profile.model_dump()}
