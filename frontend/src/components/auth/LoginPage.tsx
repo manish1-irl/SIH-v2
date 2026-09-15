@@ -196,6 +196,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         const userProfile: UserProfile = {
           phone: fullPhone,
           full_name: fullName.trim(),
+          preferred_language: selectedLanguage.code,
           role: "entrepreneur",
           created_at: new Date().toISOString(),
         };
