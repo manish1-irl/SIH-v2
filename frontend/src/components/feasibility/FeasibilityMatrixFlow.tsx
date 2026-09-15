@@ -785,7 +785,7 @@ export default function FeasibilityMatrixFlow({
 
                           <div className="pt-2.5 border-t border-antigravity-navy/10 space-y-1.5 text-xs font-sans">
                             <div className="flex justify-between items-center">
-                              <span className="text-antigravity-navy/60 text-[11px]">Chilling Infra:</span>
+                              <span className="text-antigravity-navy/60 text-[11px]">{comp.infra_label || "Facility / Infra:"}</span>
                               <span
                                 className={`font-semibold ${
                                   comp.chilling_status === "danger"
@@ -795,7 +795,7 @@ export default function FeasibilityMatrixFlow({
                                     : "text-emerald-600"
                                 }`}
                               >
-                                {comp.chilling_infra}
+                                {comp.infra_spec || comp.chilling_infra || "Standard Operations"}
                               </span>
                             </div>
 

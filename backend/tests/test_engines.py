@@ -354,3 +354,66 @@ class TestLifecycleEngine:
         resp_help = LifecycleEngine.respond_to_reminder("REM-02", "help")
         assert resp_help["updated_status"] == "need_help"
 
+
+class TestSessionManagerAndSectorEngines:
+    def test_session_manager_persistence(self):
+        from app.core.session import session_manager
+        session_manager.update_session(
+            "test-user-1",
+            business_idea="Mustard Oil Cold-Press & Expeller Unit",
+            locality="Alwar",
+            state="Rajasthan",
+            capital=150000.0,
+        )
+        sess = session_manager.get_session("test-user-1")
+        assert sess["active_business"]["business_idea"] == "Mustard Oil Cold-Press & Expeller Unit"
+        assert sess["active_business"]["locality"] == "Alwar"
+        assert sess["active_business"]["capital"] == 150000.0
+
+    def test_feasibility_matrix_mustard_oil(self):
+        matrix = FeasibilityEngine.generate_market_feasibility_matrix(
+            capital=100000.0,
+            business_idea="Mustard Oil Expeller",
+            locality="Bharatpur",
+            state="Rajasthan",
+        )
+        assert "oilseed" in matrix["market_reach"]["consumer_base_footprint"].lower()
+        assert "expeller" in matrix["opportunity_analysis"]["project_cost_tier_fit"].lower()
+        assert "cake" in matrix["swot"]["strengths"][1].lower() or "dual" in matrix["swot"]["strengths"][1].lower()
+        assert matrix["unit_economics"]["cost_per_litre"]["production_cost"] > 100
+        assert "kolhu" in matrix["competitor_density"]["landscape_comparison"][0]["name"].lower()
+
+    def test_feasibility_matrix_kirana_store(self):
+        matrix = FeasibilityEngine.generate_market_feasibility_matrix(
+            capital=100000.0,
+            business_idea="Rural Kirana & FMCG Store",
+            locality="Bassi",
+            state="Rajasthan",
+        )
+        assert "fmcg" in matrix["market_reach"]["consumer_base_footprint"].lower() or "household" in matrix["market_reach"]["consumer_base_footprint"].lower()
+        assert "inventory" in matrix["opportunity_analysis"]["project_cost_tier_fit"].lower() or "modular" in matrix["opportunity_analysis"]["project_cost_tier_fit"].lower()
+        assert "checkout" in matrix["unit_economics"]["cost_per_litre"]["selling_desc"].lower() or "basket" in matrix["unit_economics"]["cost_per_litre"]["selling_desc"].lower()
+        assert "single-shutter" in matrix["competitor_density"]["landscape_comparison"][0]["name"].lower() or "traditional" in matrix["competitor_density"]["landscape_comparison"][0]["name"].lower()
+
+    def test_cluster_network_tailoring(self):
+        net = ClusterEngine.get_cluster_network("Jaipur", "Apparel & Tailoring Enterprise")
+        assert "textile" in net.hub.sector.lower() or "apparel" in net.hub.sector.lower()
+        assert len(net.nodes) == 4
+        assert any("weaver" in n.title.lower() or "fabric" in n.title.lower() for n in net.nodes)
+
+    def test_concessional_scheme_sector_tailoring(self):
+        res_oil = DeterministicFinancialEngine.calculate_concessional_scheme_structuring(
+            capital=100000.0,
+            business_idea="Mustard Oil Expeller",
+            locality="Alwar",
+        )
+        assert "agri-infra" in res_oil.scheme_name.lower() or "agro" in res_oil.scheme_name.lower()
+        assert "agri" in res_oil.scheme_category.lower()
+
+        res_kir = DeterministicFinancialEngine.calculate_concessional_scheme_structuring(
+            capital=100000.0,
+            business_idea="Retail Kirana Store",
+            locality="Bassi",
+        )
+        assert "mudra" in res_kir.scheme_name.lower() or "retail" in res_kir.scheme_name.lower()
+

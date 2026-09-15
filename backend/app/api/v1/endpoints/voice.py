@@ -6,6 +6,7 @@ from typing import Optional
 from app.services.bhashini import bhashini_client, SUPPORTED_LANGUAGES
 from app.agent.crew_orchestrator import CrewOrchestrator
 from app.models.schemas import ChatRequest
+from app.core.session import session_manager
 
 router = APIRouter()
 
@@ -167,16 +168,16 @@ async def voice_chat(request: ConversationalTurnRequest):
     if not user_text:
         return JSONResponse(status_code=400, content={"error": "No message provided."})
 
-    session = _conversation_sessions.get(request.user_id, {"context": {}, "turns": []})
-    response_data = await orchestrator.handle_chat(user_text, session["context"], language=request.language)
+    user_id = request.user_id or "web-user"
+    session = session_manager.get_session(user_id)
+    response_data = await orchestrator.handle_chat(user_text, {**session["context"], "user_id": user_id}, language=request.language)
 
     # Update session context with newly extracted entities for multi-turn conversational memory
     if "entities" in response_data:
         extracted = {k: v for k, v in response_data["entities"].items() if v is not None and k != "needs_input"}
-        session["context"].update(extracted)
+        session_manager.update_session(user_id, **extracted)
 
-    session["turns"].append({"user": user_text, "agent": response_data.get("response", "")})
-    _conversation_sessions[request.user_id] = session
+    active_business = session_manager.get_active_business(user_id)
 
     response_text = response_data.get("response", "")
     voice_audio = ""
@@ -199,6 +200,8 @@ async def voice_chat(request: ConversationalTurnRequest):
         "voice_audio_base64": voice_audio,
         "tool_used": response_data.get("tool_used", []),
         "data": response_data.get("data", {}),
+        "entities": response_data.get("entities", {}),
+        "active_business": active_business,
         "language": request.language,
     }
 

@@ -170,6 +170,30 @@ export const apiClient = {
     return res.json();
   },
 
+  async getSession(userId: string = "web-user") {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/advisor/session/${userId}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  },
+
+  async updateSession(userId: string = "web-user", data: any) {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/advisor/session/${userId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  },
+
   async respondToReminder(reminderId: string, action: string): Promise<{ reminder_id: string; action: string; updated_status: string; ai_advice: string }> {
     const res = await fetch(`${API_BASE}/api/v1/lifecycle/reminders/${reminderId}/respond`, {
       method: "POST",

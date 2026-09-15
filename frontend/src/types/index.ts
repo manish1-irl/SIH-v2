@@ -158,6 +158,10 @@ export interface ConcessionalLoanRequest {
   tenure_years?: number;
   moratorium_months?: number;
   commercial_rate?: number;
+  business_idea?: string;
+  locality?: string;
+  state?: string;
+  user_id?: string;
 }
 
 export interface AmortizationQuarter {
@@ -234,6 +238,7 @@ export interface ClusterNetworkRequest {
   locality?: string;
   business_idea?: string;
   enterprise_name?: string;
+  user_id?: string;
 }
 
 export interface LoanStage {

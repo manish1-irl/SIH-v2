@@ -80,6 +80,10 @@ class ConcessionalLoanRequest(BaseModel):
     tenure_years: int = Field(7, description="Loan repayment tenure in years")
     moratorium_months: int = Field(6, description="Statutory grace period in months")
     commercial_rate: float = Field(12.5, description="Comparison commercial bank rate")
+    business_idea: Optional[str] = Field(None, description="Active business idea or sector")
+    locality: Optional[str] = Field(None, description="Business district or cluster locality")
+    state: Optional[str] = Field(None, description="State of operation")
+    user_id: Optional[str] = Field("web-user", description="User session identifier")
 
 
 class AmortizationQuarter(BaseModel):
@@ -218,9 +222,10 @@ class ClusterNetworkResponse(BaseModel):
 
 
 class ClusterNetworkRequest(BaseModel):
-    locality: str = "Bassi"
-    business_idea: str = "Dairy"
-    enterprise_name: str = "Ganga Dairy Parlour"
+    locality: Optional[str] = None
+    business_idea: Optional[str] = None
+    enterprise_name: Optional[str] = None
+    user_id: Optional[str] = "web-user"
 
 
 # --- Lifecycle Models ---

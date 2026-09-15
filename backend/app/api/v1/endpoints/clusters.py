@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from app.models.schemas import ClusterOpportunity, ClusterNetworkResponse, ClusterNetworkRequest
 from app.engines.cluster import ClusterEngine
+from app.core.session import session_manager
 
 router = APIRouter()
 
@@ -12,10 +13,24 @@ async def find_clusters(locality: str, business_category: str = "general"):
 
 @router.post("/network", response_model=ClusterNetworkResponse)
 async def get_cluster_network(request: ClusterNetworkRequest):
+    user_id = request.user_id or "web-user"
+    biz_idea = request.business_idea
+    locality = request.locality
+    ent_name = request.enterprise_name
+
+    if not biz_idea or biz_idea.strip().lower() in ["general", "none", ""]:
+        session_biz = session_manager.get_active_business(user_id)
+        if session_biz.get("business_idea"):
+            biz_idea = session_biz["business_idea"]
+        if session_biz.get("locality") and (not locality or locality == "Bassi"):
+            locality = session_biz["locality"]
+        if session_biz.get("enterprise_name") and (not ent_name or ent_name == "Ganga Dairy Parlour"):
+            ent_name = session_biz["enterprise_name"]
+
     return ClusterEngine.get_cluster_network(
-        locality=request.locality,
-        business_category=request.business_idea,
-        enterprise_name=request.enterprise_name,
+        locality=locality or "Bassi",
+        business_category=biz_idea or "Dairy",
+        enterprise_name=ent_name or f"{locality or 'Local'} Enterprise",
     )
 
 

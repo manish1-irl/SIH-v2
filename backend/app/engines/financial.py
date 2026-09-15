@@ -1,5 +1,5 @@
 import math
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.models.schemas import FinancialPlan, ConcessionalLoanResponse, AmortizationQuarter
 
 class DeterministicFinancialEngine:
@@ -83,6 +83,8 @@ class DeterministicFinancialEngine:
         tenure_years: int = 7,
         moratorium_months: int = 6,
         commercial_rate: float = 12.5,
+        business_idea: Optional[str] = None,
+        locality: Optional[str] = None,
     ) -> ConcessionalLoanResponse:
         # 1. Total Project Cost (P) & Concessional Debt (D)
         margin_ratio = max(margin_percent / 100.0, 0.01)
@@ -171,6 +173,47 @@ class DeterministicFinancialEngine:
         total_interest_savings = round(max(commercial_interest_cost - total_concessional_interest, 0.0), 2)
         savings_percent = round((total_interest_savings / commercial_interest_cost) * 100.0, 1) if commercial_interest_cost > 0 else 0.0
 
+        idea_lower = (business_idea or "").lower()
+        loc_display = (locality or "Local Cluster").strip().title()
+
+        if any(k in idea_lower for k in ["oil", "mustard", "expeller", "sarson", "tel"]):
+            scheme_category = "AGRI-INFRASTRUCTURE & MSME VALUE CHAIN"
+            scheme_name = "Agri-Infra Fund (AIF) & PMEGP Agro-Processing Term Loan"
+            scheme_description = f"Concessional financing tailored for Mustard Oil expeller, plate filter press & seed storage in {loc_display}."
+            rules = "3% Interest Subvention (AIF) + 25% Rural PMEGP Subsidy"
+            credit_guarantee = "100% CGTMSE Collateral-Free Guarantee"
+        elif any(k in idea_lower for k in ["kirana", "retail", "grocery", "fmcg", "store", "shop"]):
+            scheme_category = "RETAIL TRADE & MUDRA TARUN SCHEME"
+            scheme_name = "PMMY MUDRA Tarun / PMEGP Retail Distribution Facility"
+            scheme_description = f"Working capital & shop modernization credit for retail grocery inventory, POS systems & fixtures in {loc_display}."
+            rules = "Collateral-free up to ₹20L under Mudra Tarun + CGTMSE coverage"
+            credit_guarantee = "100% CGFMU Guarantee"
+        elif any(k in idea_lower for k in ["tailor", "apparel", "garment", "cloth", "textile"]):
+            scheme_category = "TEXTILES & RURAL SKILL ENTERPRISE"
+            scheme_name = "PMEGP Apparel & Tailoring Mechanization Term Scheme"
+            scheme_description = f"Financing for industrial sewing machines, cutting tables, fabric inventory in {loc_display}."
+            rules = "25% Rural PMEGP Subsidy + 90% Bank Term Financing"
+            credit_guarantee = "100% CGTMSE Collateral-Free Cover"
+        elif any(k in idea_lower for k in ["flour", "atta", "chakki", "spice", "masala", "grain", "dal mill"]):
+            scheme_category = "FOOD PROCESSING (PMFME & PMEGP)"
+            scheme_name = "PMFME & PMEGP Grain/Spice Milling Concessional Credit"
+            scheme_description = f"Subsidized financing for commercial chakki/pulverizer, grading screens & packaging in {loc_display}."
+            rules = "35% PMFME Capital Subsidy (up to ₹10 Lakhs) + 3% Interest Subvention"
+            credit_guarantee = "100% CGTMSE Guarantee"
+        elif any(k in idea_lower for k in ["dairy", "milk", "cattle", "chilling", "animal"]):
+            scheme_category = "DAIRY DEVELOPMENT (AHIDF / DIDF & PMEGP)"
+            scheme_name = "AHIDF & PMEGP Dairy Infrastructure Concessional Loan"
+            scheme_description = f"Established rural dairy aggregation, bulk milk cooling (BMC), and value-added processing in {loc_display}."
+            rules = "₹1.40L < P ≤ ₹50.00L Priority Sector Lending Rule"
+            credit_guarantee = "100% CGFMU/CGTMSE"
+        else:
+            title_name = business_idea.title() if business_idea else "Rural MSME"
+            scheme_category = "MSME PRIORITY SECTOR TERM LOAN"
+            scheme_name = f"PMEGP / MUDRA {title_name} Concessional Facility"
+            scheme_description = f"Concessional credit for machinery, site setup, and working capital inventory in {loc_display}."
+            rules = "25% Rural PMEGP Subsidy + 90% Concessional Bank Financing"
+            credit_guarantee = "100% CGTMSE / CGFMU Guarantee"
+
         return ConcessionalLoanResponse(
             promoter_margin=capital,
             margin_percent=margin_percent,
@@ -189,10 +232,10 @@ class DeterministicFinancialEngine:
             commercial_interest_cost=commercial_interest_cost,
             total_interest_savings=total_interest_savings,
             savings_percent=savings_percent,
-            credit_guarantee="100% CGFMU/CGTMSE",
-            scheme_category="TERM LOAN CATEGORY",
-            scheme_name="Term Loan Concessional Scheme (TLS)",
-            scheme_description="Established rural micro/small enterprises, agri-processors, dairy clusters, mechanization units",
-            rules="₹1.40L < P ≤ ₹50.00L Rule",
+            credit_guarantee=credit_guarantee,
+            scheme_category=scheme_category,
+            scheme_name=scheme_name,
+            scheme_description=scheme_description,
+            rules=rules,
             schedule=schedule,
         )

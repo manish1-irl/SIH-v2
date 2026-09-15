@@ -59,6 +59,17 @@ export default function HomePage() {
       text: `Namaste${name}! I am your Sahaay Hyper-Local AI Business Advisor. I help rural Indian entrepreneurs with feasibility analysis, government scheme matching (PMEGP, MUDRA), financial planning, and business lifecycle support. Tell me your business idea, location, and available capital. You can speak in any Indian language!`,
       toolUsed: ["greeting"],
     });
+
+    // Restore active session state from backend if available
+    apiClient.getSession().then((sess) => {
+      if (sess?.active_business) {
+        if (sess.active_business.business_idea) setBusinessIdea(sess.active_business.business_idea);
+        if (sess.active_business.capital) setCapital(Number(sess.active_business.capital));
+        if (sess.active_business.locality) setLocality(sess.active_business.locality);
+        if (sess.active_business.state) setStateName(sess.active_business.state);
+        if (sess.active_business.enterprise_name) setEnterpriseName(sess.active_business.enterprise_name);
+      }
+    }).catch(() => {});
   }, []);
 
   const addMessage = (msg: Omit<HomeChatMessage, "id" | "timestamp">) => {
@@ -243,7 +254,13 @@ export default function HomePage() {
     setIsProcessing(true);
     try {
       const result = await apiClient.voiceChat(audioBase64, language);
-      if (result.user_message) {
+      if (result.active_business) {
+        if (result.active_business.business_idea) setBusinessIdea(result.active_business.business_idea);
+        if (result.active_business.capital) setCapital(Number(result.active_business.capital));
+        if (result.active_business.locality) setLocality(result.active_business.locality);
+        if (result.active_business.state) setStateName(result.active_business.state);
+        if (result.active_business.enterprise_name) setEnterpriseName(result.active_business.enterprise_name);
+      } else if (result.user_message) {
         parseBusinessParams(result.user_message);
       }
       addMessage({
@@ -307,6 +324,14 @@ export default function HomePage() {
       }
 
       const result = await apiClient.textChat(text, language);
+
+      if (result.active_business) {
+        if (result.active_business.business_idea) setBusinessIdea(result.active_business.business_idea);
+        if (result.active_business.capital) setCapital(Number(result.active_business.capital));
+        if (result.active_business.locality) setLocality(result.active_business.locality);
+        if (result.active_business.state) setStateName(result.active_business.state);
+        if (result.active_business.enterprise_name) setEnterpriseName(result.active_business.enterprise_name);
+      }
 
       const dprUnlocked = isDpr || Boolean(result.tool_used?.includes("tool_06_generate_dpr"));
 

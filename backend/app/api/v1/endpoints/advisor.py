@@ -1,5 +1,6 @@
 from io import BytesIO
-from fastapi import APIRouter, HTTPException
+from typing import Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from app.models.schemas import (
     BusinessAdvisorRequest, FeasibilityReportResponse, ReverseFeasibilityRecommendation,
@@ -13,17 +14,58 @@ from app.engines.time_machine import TimeMachineEngine
 from app.engines.cluster import ClusterEngine
 from app.engines.dpr import DPREngine
 from app.agent.crew_orchestrator import CrewOrchestrator
+from app.core.session import session_manager
 import uuid
 from datetime import datetime, timezone
 
 router = APIRouter()
 
 
+@router.get("/session/{user_id}")
+async def get_user_session(user_id: str = "web-user"):
+    return session_manager.get_session(user_id)
+
+
+@router.post("/session/{user_id}")
+async def update_user_session(user_id: str = "web-user", data: Dict[str, Any] = Body(...)):
+    session_manager.update_session(user_id, **data)
+    return session_manager.get_session(user_id)
+
+
 @router.post("/analyze", response_model=FeasibilityReportResponse)
 async def analyze_business(request: BusinessAdvisorRequest):
+    user_id = getattr(request, "user_id", None) or "web-user"
+    biz_idea = request.business_idea
+    locality = request.locality
+    state = request.state
+    capital = request.capital
+
+    # Fall back to active business in session if empty or generic
+    if not biz_idea or biz_idea.strip().lower() in ["general", "none", ""]:
+        session_biz = session_manager.get_active_business(user_id)
+        if session_biz.get("business_idea"):
+            biz_idea = session_biz["business_idea"]
+        if session_biz.get("locality") and (not locality or locality == "Bassi"):
+            locality = session_biz["locality"]
+        if session_biz.get("state") and (not state or state == "Rajasthan"):
+            state = session_biz["state"]
+        if session_biz.get("capital") and capital in [0, 100000]:
+            capital = session_biz["capital"]
+
+    # Persist current evaluated parameters into session
+    session_manager.update_session(
+        user_id,
+        business_idea=biz_idea,
+        locality=locality,
+        state=state,
+        capital=capital,
+        social_category=request.social_category.value if request.social_category else "General",
+        gender=request.gender.value if request.gender else "Male",
+    )
+
     financial_plan = DeterministicFinancialEngine.generate_financial_plan(
-        capital=request.capital,
-        business_category=request.business_idea or "general",
+        capital=capital,
+        business_category=biz_idea or "general",
     )
 
     feasibility = FeasibilityEngine.calculate_feasibility(
@@ -111,6 +153,16 @@ async def reverse_feasibility(request: BusinessAdvisorRequest):
 
 @router.post("/concessional-calculator", response_model=ConcessionalLoanResponse)
 async def calculate_concessional_loan(request: ConcessionalLoanRequest):
+    user_id = request.user_id or "web-user"
+    biz_idea = request.business_idea
+    locality = request.locality
+
+    if not biz_idea:
+        session_biz = session_manager.get_active_business(user_id)
+        biz_idea = session_biz.get("business_idea") or "General MSME"
+        if not locality:
+            locality = session_biz.get("locality") or "Bassi"
+
     return DeterministicFinancialEngine.calculate_concessional_scheme_structuring(
         capital=request.capital,
         margin_percent=request.margin_percent,
@@ -118,37 +170,63 @@ async def calculate_concessional_loan(request: ConcessionalLoanRequest):
         tenure_years=request.tenure_years,
         moratorium_months=request.moratorium_months,
         commercial_rate=request.commercial_rate,
+        business_idea=biz_idea,
+        locality=locality,
     )
 
 
 @router.post("/generate-dpr")
 async def generate_dpr(request: BusinessAdvisorRequest):
+    user_id = getattr(request, "user_id", None) or "web-user"
+    biz_idea = request.business_idea
+    locality = request.locality
+    state = request.state
+    capital = request.capital
+
+    if not biz_idea or biz_idea.strip().lower() in ["general", "none", ""]:
+        session_biz = session_manager.get_active_business(user_id)
+        if session_biz.get("business_idea"):
+            biz_idea = session_biz["business_idea"]
+        if session_biz.get("locality") and (not locality or locality == "Bassi"):
+            locality = session_biz["locality"]
+        if session_biz.get("state") and (not state or state == "Rajasthan"):
+            state = session_biz["state"]
+        if session_biz.get("capital") and capital in [0, 100000]:
+            capital = session_biz["capital"]
+
     financial_plan = DeterministicFinancialEngine.generate_financial_plan(
-        capital=request.capital,
-        business_category=request.business_idea or "general",
+        capital=capital,
+        business_category=biz_idea or "general",
     )
     schemes = SchemeEngine.match_schemes(
         project_cost=financial_plan.project_cost,
-        business_category=request.business_idea or "general",
+        business_category=biz_idea or "general",
         social_category=request.social_category,
         gender=request.gender,
     )
     feasibility = FeasibilityEngine.calculate_feasibility(
-        capital=request.capital,
-        business_idea=request.business_idea or "general",
-        locality=request.locality,
-        state=request.state,
+        capital=capital,
+        business_idea=biz_idea or "general",
+        locality=locality,
+        state=state,
         demographics={},
     )
     time_machine = TimeMachineEngine.analyze_timing(
-        business_category=request.business_idea or "general",
+        business_category=biz_idea or "general",
     )
     clusters = ClusterEngine.find_clusters(
-        locality=request.locality,
-        business_category=request.business_idea or "general",
+        locality=locality,
+        business_category=biz_idea or "general",
     )
     evidence = EvidenceObject(
-        user_inputs=request.model_dump(),
+        user_inputs={
+            "locality": locality,
+            "state": state,
+            "capital": capital,
+            "business_idea": biz_idea,
+            "social_category": request.social_category.value if request.social_category else "General",
+            "gender": request.gender.value if request.gender else "Male",
+        },
         financial_data=financial_plan,
         scheme_data=schemes,
         time_machine=time_machine,

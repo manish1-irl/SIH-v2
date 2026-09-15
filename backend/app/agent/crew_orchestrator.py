@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 from app.models.schemas import EvidenceObject
 from app.tools.agent_tools import AgentTools
 from app.core.config import settings
+from app.core.session import session_manager
 
 
 class CrewOrchestrator:
@@ -298,86 +299,163 @@ class CrewOrchestrator:
         entities["intent_to_start"] = any(p in text_lower for p in intent_phrases)
 
         known_businesses = {
-            "dairy": "Dairy Micro-Enterprise",
-            "milk": "Dairy Micro-Enterprise",
-            "dudh": "Dairy Micro-Enterprise",
-            "doodh": "Dairy Micro-Enterprise",
-            "cattle": "Dairy Micro-Enterprise",
-            "cow": "Dairy Micro-Enterprise",
-            "buffalo": "Dairy Micro-Enterprise",
-            "pashupalan": "Dairy Micro-Enterprise",
-            "डेयरी": "Dairy Micro-Enterprise",
-            "दूध": "Dairy Micro-Enterprise",
-            "पशुपालन": "Dairy Micro-Enterprise",
-            "गाय": "Dairy Micro-Enterprise",
-            "भैंस": "Dairy Micro-Enterprise",
-            "spice": "Spice Processing Unit",
-            "masala": "Spice Processing Unit",
-            "मसाला": "Spice Processing Unit",
-            "food": "Food Processing Unit",
-            "flour": "Food Processing Unit",
-            "atta": "Food Processing Unit",
-            "आटा": "Food Processing Unit",
-            "tailoring": "Tailoring & Garment Shop",
-            "tailor": "Tailoring & Garment Shop",
-            "cloth": "Tailoring & Garment Shop",
-            "garment": "Tailoring & Garment Shop",
-            "silai": "Tailoring & Garment Shop",
-            "सिलाई": "Tailoring & Garment Shop",
-            "दर्जी": "Tailoring & Garment Shop",
-            "कपड़ा": "Tailoring & Garment Shop",
-            "shop": "Retail Shop",
-            "retail": "Retail Shop",
-            "kirana": "Retail Shop",
-            "grocery": "Retail Shop",
-            "general store": "Retail Shop",
-            "किराना": "Retail Shop",
-            "दुकान": "Retail Shop",
-            "राशन": "Retail Shop",
-            "solar": "Solar Equipment Rental",
-            "सोलर": "Solar Equipment Rental",
-            "repair": "Repair & Service Center",
-            "mobile repair": "Repair & Service Center",
-            "beauty": "Beauty Parlour",
-            "parlour": "Beauty Parlour",
-            "salon": "Beauty Parlour",
-            "photocopy": "Cyber Cafe & Photocopy",
-            "cyber": "Cyber Cafe & Photocopy",
-            "computer": "Computer Training Center",
-            "tea": "Tea Stall",
-            "chai": "Tea Stall",
-            "चाय": "Tea Stall",
-            "snack": "Snack Food Business",
-            "नाश्ता": "Snack Food Business",
+            # Mustard Oil / Edible Oil
+            "mustard": "Mustard Oil Cold-Press & Expeller Unit",
+            "sarson": "Mustard Oil Cold-Press & Expeller Unit",
+            "oil expeller": "Mustard Oil Cold-Press & Expeller Unit",
+            "oil mill": "Mustard Oil Cold-Press & Expeller Unit",
+            "edible oil": "Mustard Oil Cold-Press & Expeller Unit",
+            "kacchi ghani": "Mustard Oil Cold-Press & Expeller Unit",
+            "cold press oil": "Mustard Oil Cold-Press & Expeller Unit",
+            "oilseed": "Mustard Oil Cold-Press & Expeller Unit",
+            "tel mill": "Mustard Oil Cold-Press & Expeller Unit",
+            "oil": "Mustard Oil Cold-Press & Expeller Unit",
+            "सरसों": "Mustard Oil Cold-Press & Expeller Unit",
+            "तेल": "Mustard Oil Cold-Press & Expeller Unit",
+            "कोल्हू": "Mustard Oil Cold-Press & Expeller Unit",
+            "राई": "Mustard Oil Cold-Press & Expeller Unit",
+
+            # Dairy & Animal Husbandry
+            "dairy": "Commercial Mini Dairy & Chilling Unit",
+            "milk": "Commercial Mini Dairy & Chilling Unit",
+            "bmc": "Commercial Mini Dairy & Chilling Unit",
+            "chilling": "Commercial Mini Dairy & Chilling Unit",
+            "dudh": "Commercial Mini Dairy & Chilling Unit",
+            "doodh": "Commercial Mini Dairy & Chilling Unit",
+            "paneer": "Commercial Mini Dairy & Chilling Unit",
+            "ghee": "Commercial Mini Dairy & Chilling Unit",
+            "cattle": "Commercial Mini Dairy & Chilling Unit",
+            "cow": "Commercial Mini Dairy & Chilling Unit",
+            "buffalo": "Commercial Mini Dairy & Chilling Unit",
+            "pashupalan": "Commercial Mini Dairy & Chilling Unit",
+            "डेयरी": "Commercial Mini Dairy & Chilling Unit",
+            "दूध": "Commercial Mini Dairy & Chilling Unit",
+            "पनीर": "Commercial Mini Dairy & Chilling Unit",
+            "घी": "Commercial Mini Dairy & Chilling Unit",
+            "पशुपालन": "Commercial Mini Dairy & Chilling Unit",
+            "गाय": "Commercial Mini Dairy & Chilling Unit",
+            "भैंस": "Commercial Mini Dairy & Chilling Unit",
+
+            # Food Processing & Flour Milling
+            "flour mill": "Semi-Automated Flour & Atta Processing Mill",
+            "atta chakki": "Semi-Automated Flour & Atta Processing Mill",
+            "atta mill": "Semi-Automated Flour & Atta Processing Mill",
+            "chakki": "Semi-Automated Flour & Atta Processing Mill",
+            "flour": "Semi-Automated Flour & Atta Processing Mill",
+            "atta": "Semi-Automated Flour & Atta Processing Mill",
+            "आटा": "Semi-Automated Flour & Atta Processing Mill",
+            "चक्की": "Semi-Automated Flour & Atta Processing Mill",
+
+            # Pulses & Dal Mill
+            "dal mill": "Mini Dal Mill & Pulse Cleaning Unit",
+            "pulse": "Mini Dal Mill & Pulse Cleaning Unit",
+            "pulses": "Mini Dal Mill & Pulse Cleaning Unit",
+            "dal": "Mini Dal Mill & Pulse Cleaning Unit",
+            "chana": "Mini Dal Mill & Pulse Cleaning Unit",
+            "दाल": "Mini Dal Mill & Pulse Cleaning Unit",
+            "चना": "Mini Dal Mill & Pulse Cleaning Unit",
+
+            # Spices
+            "spice": "Agro Spice Processing & Packaging",
+            "spices": "Agro Spice Processing & Packaging",
+            "masala": "Agro Spice Processing & Packaging",
+            "turmeric": "Agro Spice Processing & Packaging",
+            "chilli": "Agro Spice Processing & Packaging",
+            "haldi": "Agro Spice Processing & Packaging",
+            "mirch": "Agro Spice Processing & Packaging",
+            "मसाला": "Agro Spice Processing & Packaging",
+            "हल्दी": "Agro Spice Processing & Packaging",
+            "मिर्च": "Agro Spice Processing & Packaging",
+
+            # Retail & Kirana Store
+            "kirana": "Rural Retail Kirana & FMCG Hub",
+            "grocery": "Rural Retail Kirana & FMCG Hub",
+            "retail": "Rural Retail Kirana & FMCG Hub",
+            "general store": "Rural Retail Kirana & FMCG Hub",
+            "supermarket": "Rural Retail Kirana & FMCG Hub",
+            "fmcg": "Rural Retail Kirana & FMCG Hub",
+            "ration": "Rural Retail Kirana & FMCG Hub",
+            "provisions": "Rural Retail Kirana & FMCG Hub",
+            "किराना": "Rural Retail Kirana & FMCG Hub",
+            "दुकान": "Rural Retail Kirana & FMCG Hub",
+            "राशन": "Rural Retail Kirana & FMCG Hub",
+
+            # Tailoring & Apparel
+            "tailoring": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "tailor": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "uniform": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "cloth": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "garment": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "textile": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "silai": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "सिलाई": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "दर्जी": "Custom Institutional Uniform & Garment Tailoring Unit",
+            "कपड़ा": "Custom Institutional Uniform & Garment Tailoring Unit",
+
+            # Solar & Renewables
+            "solar": "Rural Solar Farm Equipment & Pump Rental Kiosk",
+            "pump": "Rural Solar Farm Equipment & Pump Rental Kiosk",
+            "सोलर": "Rural Solar Farm Equipment & Pump Rental Kiosk",
+
+            # Poultry & Livestock
+            "poultry": "Commercial Poultry & Broiler Layer Unit",
+            "broiler": "Commercial Poultry & Broiler Layer Unit",
+            "egg": "Commercial Poultry & Broiler Layer Unit",
+            "murgi": "Commercial Poultry & Broiler Layer Unit",
+            "मुर्गी": "Commercial Poultry & Broiler Layer Unit",
+            "पोल्ट्री": "Commercial Poultry & Broiler Layer Unit",
+            "goat": "Goat Farming & Livestock Rearing",
+            "bakri": "Goat Farming & Livestock Rearing",
+            "बकरी": "Goat Farming & Livestock Rearing",
+
+            # Other MSMEs
+            "mushroom": "Mushroom Cultivation & Processing",
+            "मशरूम": "Mushroom Cultivation & Processing",
+            "honey": "Apiculture (Honey) Unit",
+            "bee": "Apiculture (Honey) Unit",
+            "मधुमक्खी": "Apiculture (Honey) Unit",
             "fish": "Fishery Enterprise",
             "machli": "Fishery Enterprise",
-            "matsya": "Fishery Enterprise",
             "मछली": "Fishery Enterprise",
-            "poultry": "Poultry Farm",
-            "murgi": "Poultry Farm",
-            "मुर्गी": "Poultry Farm",
-            "पोल्ट्री": "Poultry Farm",
-            "goat": "Goat Farming",
-            "bakri": "Goat Farming",
-            "बकरी": "Goat Farming",
-            "bee": "Apiculture (Honey) Unit",
-            "honey": "Apiculture (Honey) Unit",
-            "मधुमक्खी": "Apiculture (Honey) Unit",
-            "mushroom": "Mushroom Cultivation",
-            "मशरूम": "Mushroom Cultivation",
+            "repair": "Mobile & Electric Repair Center",
+            "beauty": "Beauty Parlour & Wellness Hub",
+            "cyber": "Digital CSC & E-Mitra Kiosk",
+            "bakery": "Commercial Bakery & Confectionery Unit",
+            "बेकरी": "Commercial Bakery & Confectionery Unit",
         }
         for keyword, business in known_businesses.items():
             if keyword in text_lower:
                 entities["business_idea"] = business
                 break
 
+        # Fallback regex for custom business ideas: "start a <business> business/mill/shop/unit"
+        if "business_idea" not in entities:
+            custom_match = re.search(
+                r'\b(?:start|open|run|launch|set up|setup|want to do|plan to do|start a|start an|open a|open an)\s+([a-zA-Z\s]{3,35}?)\s+(?:business|unit|shop|mill|store|enterprise|plant|hub|center|kiosk|project)\b',
+                text,
+                re.IGNORECASE,
+            )
+            if custom_match:
+                cand = custom_match.group(1).strip()
+                stopwords = {"a", "an", "the", "my", "new", "small", "rural", "local", "profitable", "good", "some"}
+                words = [w for w in cand.split() if w.lower() not in stopwords]
+                if words:
+                    entities["business_idea"] = " ".join(words).title()
+
+        # Hindi custom business pattern: e.g. "<business> का काम / का बिजनेस / की दुकान"
+        if "business_idea" not in entities:
+            indic_biz = re.search(r'([a-zA-Z\u0900-\u097F\s]{2,25})\s+(?:का\s+बिजनेस|का\s+काम|की\s+दुकान|का\s+प्लांट|का\s+यूनिट)', text)
+            if indic_biz:
+                cand = indic_biz.group(1).strip()
+                stopwords_hi = {"नया", "अपना", "छोटा", "कोई", "एक"}
+                if cand not in stopwords_hi:
+                    entities["business_idea"] = cand.title()
+
         indian_states = [
-            "rajasthan", "maharashtra", "uttar pradesh", "madhya pradesh",
-            "gujarat", "karnataka", "tamil nadu", "andhra pradesh", "telangana",
-            "west bengal", "odisha", "punjab", "haryana", "bihar", "jharkhand",
-            "chhattisgarh", "uttarakhand", "himachal pradesh", "assam", "kerala",
-            "goa", "manipur", "meghalaya", "nagaland", "tripura", "mizoram",
-            "arunachal pradesh", "sikkim", "jammu", "kashmir", "delhi",
+            "rajasthan", "uttar pradesh", "madhya pradesh", "gujarat", "maharashtra",
+            "punjab", "haryana", "bihar", "west bengal", "odisha", "karnataka",
+            "tamil nadu", "telangana", "andhra pradesh", "kerala", "assam", "jharkhand",
+            "chhattisgarh", "himachal pradesh", "uttarakhand"
         ]
         for state in indian_states:
             if state in text_lower:
@@ -418,7 +496,16 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
     async def handle_chat(self, query: str, context: Optional[Dict[str, Any]] = None, language: str = "en") -> Dict[str, Any]:
         query_lower = query.lower()
         entities = self._extract_entities(query)
-        ctx = {**(context or {}), **entities}
+        if isinstance(context, str):
+            user_id = context
+            context = {"user_id": user_id}
+        else:
+            user_id = (context or {}).get("user_id") or "web-user"
+        session = session_manager.get_session(user_id)
+        # Inherit session context and overlay new entities
+        ctx = {**session["context"], **(context or {}), **entities}
+        # Update session manager with any newly recognized parameters
+        session_manager.update_session(user_id, **entities)
 
         # Strict greeting check: only trigger pure greeting if message is purely a greeting
         words = re.findall(r'\b\w+\b', query_lower)
@@ -444,6 +531,7 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
                 "tool_used": ["greeting"],
                 "data": {},
                 "entities": entities,
+                "active_business": session_manager.get_active_business(user_id),
             }
 
         if any(k in query_lower for k in ["what can you", "features", "capabilities", "help me with"]):
@@ -459,6 +547,7 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
                 "tool_used": ["capabilities"],
                 "data": {},
                 "entities": entities,
+                "active_business": session_manager.get_active_business(user_id),
             }
 
         if any(re.search(r'\b' + re.escape(w) + r'\b', query_lower) for w in ["emi", "loan", "repayment", "repay", "kist"]):
@@ -636,6 +725,7 @@ Instructions based on the Advisor Engine Data:
             "tool_used": list(tool_result.keys()),
             "data": tool_result,
             "entities": entities,
+            "active_business": session_manager.get_active_business(user_id),
         }
 
     async def handle_full_analysis(self, user_text: str) -> Dict[str, Any]:
