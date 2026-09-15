@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from app.models.schemas import (
     BusinessAdvisorRequest, FeasibilityReportResponse, ReverseFeasibilityRecommendation,
     EvidenceObject, FinancialPlan, RecommendationEnum, SWOTAnalysis,
+    ConcessionalLoanRequest, ConcessionalLoanResponse,
 )
 from app.engines.financial import DeterministicFinancialEngine
 from app.engines.feasibility import FeasibilityEngine
@@ -106,6 +107,18 @@ async def reverse_feasibility(request: BusinessAdvisorRequest):
         state=request.state,
     )
     return recommendations
+
+
+@router.post("/concessional-calculator", response_model=ConcessionalLoanResponse)
+async def calculate_concessional_loan(request: ConcessionalLoanRequest):
+    return DeterministicFinancialEngine.calculate_concessional_scheme_structuring(
+        capital=request.capital,
+        margin_percent=request.margin_percent,
+        annual_interest_rate=request.annual_interest_rate,
+        tenure_years=request.tenure_years,
+        moratorium_months=request.moratorium_months,
+        commercial_rate=request.commercial_rate,
+    )
 
 
 @router.post("/generate-dpr")

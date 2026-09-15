@@ -1,6 +1,6 @@
 import math
 from typing import List, Dict, Any
-from app.models.schemas import FinancialPlan
+from app.models.schemas import FinancialPlan, ConcessionalLoanResponse, AmortizationQuarter
 
 class DeterministicFinancialEngine:
     @staticmethod
@@ -73,4 +73,126 @@ class DeterministicFinancialEngine:
             break_even_months=break_even_month,
             working_capital=working_capital,
             monthly_cashflow_projection=cashflows,
+        )
+
+    @staticmethod
+    def calculate_concessional_scheme_structuring(
+        capital: float = 100000.0,
+        margin_percent: float = 10.0,
+        annual_interest_rate: float = 8.0,
+        tenure_years: int = 7,
+        moratorium_months: int = 6,
+        commercial_rate: float = 12.5,
+    ) -> ConcessionalLoanResponse:
+        # 1. Total Project Cost (P) & Concessional Debt (D)
+        margin_ratio = max(margin_percent / 100.0, 0.01)
+        total_project_cost = round(capital / margin_ratio, 2)
+        concessional_debt = round(total_project_cost - capital, 2)
+
+        # 2. Quarters calculation
+        tenure_quarters = tenure_years * 4
+        moratorium_quarters = max(int(round(moratorium_months / 3)), 0)
+        active_quarters = max(tenure_quarters - moratorium_quarters, 1)
+
+        # 3. Concessional rates
+        quarterly_rate = (annual_interest_rate / 100.0) / 4.0
+        grace_quarterly_installment = round(concessional_debt * quarterly_rate, 2)
+
+        if quarterly_rate > 0:
+            numerator = quarterly_rate * math.pow(1 + quarterly_rate, active_quarters)
+            denominator = math.pow(1 + quarterly_rate, active_quarters) - 1
+            active_eqi = round(concessional_debt * (numerator / denominator), 2)
+        else:
+            active_eqi = round(concessional_debt / active_quarters, 2)
+
+        # 4. Generate Amortization Schedule
+        schedule: List[AmortizationQuarter] = []
+        balance = concessional_debt
+        total_principal_repaid = 0.0
+        total_concessional_interest = 0.0
+
+        for q in range(1, tenure_quarters + 1):
+            year = (q - 1) // 4 + 1
+            quarter_in_year = (q - 1) % 4 + 1
+            label = f"Y{year}-Q{quarter_in_year}"
+            opening_balance = balance
+
+            if q <= moratorium_quarters:
+                status = "Grace Moratorium"
+                interest_paid = round(opening_balance * quarterly_rate, 2)
+                principal_repaid = 0.0
+                installment = interest_paid
+                closing_balance = opening_balance
+            else:
+                status = "Active EQI"
+                interest_paid = round(opening_balance * quarterly_rate, 2)
+                if q == tenure_quarters:
+                    principal_repaid = round(opening_balance, 2)
+                    installment = round(principal_repaid + interest_paid, 2)
+                    closing_balance = 0.0
+                else:
+                    principal_repaid = round(min(opening_balance, active_eqi - interest_paid), 2)
+                    installment = round(principal_repaid + interest_paid, 2)
+                    closing_balance = round(max(opening_balance - principal_repaid, 0.0), 2)
+
+            balance = closing_balance
+            total_principal_repaid += principal_repaid
+            total_concessional_interest += interest_paid
+
+            schedule.append(
+                AmortizationQuarter(
+                    quarter=q,
+                    label=label,
+                    year=year,
+                    quarter_of_year=quarter_in_year,
+                    status=status,
+                    opening_balance=opening_balance,
+                    installment=installment,
+                    principal_repaid=principal_repaid,
+                    interest_paid=interest_paid,
+                    closing_balance=closing_balance,
+                )
+            )
+
+        total_principal_repaid = round(total_principal_repaid, 2)
+        total_concessional_interest = round(total_concessional_interest, 2)
+        total_outflow = round(total_principal_repaid + total_concessional_interest, 2)
+
+        # 5. Commercial Benchmark Comparison (at commercial_rate, e.g. 12.5% p.a. standard 28-Qtr commercial term loan)
+        comm_quarterly_rate = (commercial_rate / 100.0) / 4.0
+        if comm_quarterly_rate > 0:
+            comm_num = comm_quarterly_rate * math.pow(1 + comm_quarterly_rate, tenure_quarters)
+            comm_den = math.pow(1 + comm_quarterly_rate, tenure_quarters) - 1
+            comm_eqi = concessional_debt * (comm_num / comm_den)
+            commercial_interest_cost = round((comm_eqi * tenure_quarters) - concessional_debt, 2)
+        else:
+            commercial_interest_cost = 0.0
+
+        total_interest_savings = round(max(commercial_interest_cost - total_concessional_interest, 0.0), 2)
+        savings_percent = round((total_interest_savings / commercial_interest_cost) * 100.0, 1) if commercial_interest_cost > 0 else 0.0
+
+        return ConcessionalLoanResponse(
+            promoter_margin=capital,
+            margin_percent=margin_percent,
+            total_project_cost=total_project_cost,
+            concessional_debt=concessional_debt,
+            annual_interest_rate=annual_interest_rate,
+            tenure_years=tenure_years,
+            tenure_quarters=tenure_quarters,
+            moratorium_months=moratorium_months,
+            moratorium_quarters=moratorium_quarters,
+            grace_quarterly_installment=grace_quarterly_installment,
+            active_eqi=active_eqi,
+            total_principal_repaid=total_principal_repaid,
+            total_concessional_interest=total_concessional_interest,
+            total_outflow=total_outflow,
+            commercial_interest_cost=commercial_interest_cost,
+            total_interest_savings=total_interest_savings,
+            savings_percent=savings_percent,
+            credit_guarantee="100% CGFMU/CGTMSE",
+            scheme_category="TERM LOAN CATEGORY",
+            scheme_name="Term Loan Concessional Scheme (TLS)",
+            scheme_description="Established rural micro/small enterprises, agri-processors, dairy clusters, mechanization units",
+            rules="₹1.40L < P ≤ ₹50.00L Rule",
+            schedule=schedule,
         )

@@ -63,6 +63,31 @@ class TestDeterministicFinancialEngine:
             assert cf.projected_revenue >= 0
             assert cf.operating_expenses >= 0
 
+    def test_concessional_scheme_structuring_mockup_values(self):
+        result = DeterministicFinancialEngine.calculate_concessional_scheme_structuring(
+            capital=100000.0,
+            margin_percent=10.0,
+            annual_interest_rate=8.0,
+            tenure_years=7,
+            moratorium_months=6,
+            commercial_rate=12.5,
+        )
+        assert result.total_project_cost == 1000000.0
+        assert result.concessional_debt == 900000.0
+        assert result.grace_quarterly_installment == 18000.0
+        assert round(result.active_eqi) == 44729
+        assert round(result.total_concessional_interest) in [298962, 298965]
+        assert round(result.total_outflow) in [1198962, 1198965]
+        assert round(result.total_interest_savings) in [164631, 164634]
+        assert len(result.schedule) == 28
+        assert result.schedule[0].status == "Grace Moratorium"
+        assert result.schedule[1].status == "Grace Moratorium"
+        assert result.schedule[2].status == "Active EQI"
+        assert result.schedule[9].label == "Y3-Q2"
+        assert round(result.schedule[9].closing_balance) in [670583, 670584, 670585, 670586]
+        assert round(result.schedule[9].interest_paid) == 14026
+        assert result.schedule[-1].closing_balance == 0.0
+
 
 class TestFeasibilityEngine:
     def test_calculate_feasibility(self):

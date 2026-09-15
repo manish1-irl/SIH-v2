@@ -73,6 +73,54 @@ class FinancialPlan(BaseModel):
     monthly_cashflow_projection: List[CashflowMonth]
 
 
+class ConcessionalLoanRequest(BaseModel):
+    capital: float = Field(100000.0, description="Promoter margin capital in INR")
+    margin_percent: float = Field(10.0, description="Borrower equity percentage")
+    annual_interest_rate: float = Field(8.0, description="Annual concessional interest rate")
+    tenure_years: int = Field(7, description="Loan repayment tenure in years")
+    moratorium_months: int = Field(6, description="Statutory grace period in months")
+    commercial_rate: float = Field(12.5, description="Comparison commercial bank rate")
+
+
+class AmortizationQuarter(BaseModel):
+    quarter: int
+    label: str
+    year: int
+    quarter_of_year: int
+    status: str
+    opening_balance: float
+    installment: float
+    principal_repaid: float
+    interest_paid: float
+    closing_balance: float
+
+
+class ConcessionalLoanResponse(BaseModel):
+    promoter_margin: float
+    margin_percent: float
+    total_project_cost: float
+    concessional_debt: float
+    annual_interest_rate: float
+    tenure_years: int
+    tenure_quarters: int
+    moratorium_months: int
+    moratorium_quarters: int
+    grace_quarterly_installment: float
+    active_eqi: float
+    total_principal_repaid: float
+    total_concessional_interest: float
+    total_outflow: float
+    commercial_interest_cost: float
+    total_interest_savings: float
+    savings_percent: float
+    credit_guarantee: str
+    scheme_category: str
+    scheme_name: str
+    scheme_description: str
+    rules: str
+    schedule: List[AmortizationQuarter]
+
+
 # --- Feasibility Models ---
 
 class FeasibilityScoreBreakdown(BaseModel):

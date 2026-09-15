@@ -150,3 +150,51 @@ export interface BusinessGoal {
   priority: string;
   status: string;
 }
+
+export interface ConcessionalLoanRequest {
+  capital: number;
+  margin_percent?: number;
+  annual_interest_rate?: number;
+  tenure_years?: number;
+  moratorium_months?: number;
+  commercial_rate?: number;
+}
+
+export interface AmortizationQuarter {
+  quarter: number;
+  label: string;
+  year: number;
+  quarter_of_year: number;
+  status: "Grace Moratorium" | "Active EQI";
+  opening_balance: number;
+  installment: number;
+  principal_repaid: number;
+  interest_paid: number;
+  closing_balance: number;
+}
+
+export interface ConcessionalLoanResponse {
+  promoter_margin: number;
+  margin_percent: number;
+  total_project_cost: number;
+  concessional_debt: number;
+  annual_interest_rate: number;
+  tenure_years: number;
+  tenure_quarters: number;
+  moratorium_months: number;
+  moratorium_quarters: number;
+  grace_quarterly_installment: number;
+  active_eqi: number;
+  total_principal_repaid: number;
+  total_concessional_interest: number;
+  total_outflow: number;
+  commercial_interest_cost: number;
+  total_interest_savings: number;
+  savings_percent: number;
+  credit_guarantee: string;
+  scheme_category: string;
+  scheme_name: string;
+  scheme_description: string;
+  rules: string;
+  schedule: AmortizationQuarter[];
+}

@@ -11,6 +11,7 @@ import { apiClient } from "@/lib/api";
 import LoginPage from "@/components/auth/LoginPage";
 import HomePageView from "@/components/home/HomePageView";
 import FeasibilityMatrixFlow from "@/components/feasibility/FeasibilityMatrixFlow";
+import SchemeCalculatorFlow from "@/components/schemes/SchemeCalculatorFlow";
 import { getCurrentUser, logoutUser, UserProfile } from "@/lib/supabase";
 
 interface ChatMessage {
@@ -299,6 +300,21 @@ export default function HomePage() {
     );
   }
 
+  if (activeView === "schemes") {
+    return (
+      <SchemeCalculatorFlow
+        onBackToHome={() => setActiveView("home")}
+        onProceedToFeasibility={() => {
+          setActiveView("feasibility");
+        }}
+        onProceedToDpr={() => {
+          setActiveView("dpr");
+          handleTriggerQuery("Generate DPR (Detailed Project Report) for bank loan submission.");
+        }}
+      />
+    );
+  }
+
   const selectedLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   return (
@@ -365,7 +381,7 @@ export default function HomePage() {
                 handleTriggerQuery("Calculate government scheme subsidies (PMEGP, MUDRA, PMFME, PM Vishwakarma) and bank loan eligibility for my business.");
               }}
               className={`font-sans text-xs font-semibold tracking-wide transition-colors py-1 ${
-                activeView === "schemes"
+                (activeView as string) === "schemes"
                   ? "text-antigravity-orange border-b-2 border-antigravity-orange"
                   : "text-antigravity-charcoal/70 hover:text-antigravity-orange"
               }`}

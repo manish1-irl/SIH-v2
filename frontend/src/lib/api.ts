@@ -3,6 +3,8 @@ import {
   FeasibilityReportResponse,
   ReverseFeasibilityRecommendation,
   BusinessGoal,
+  ConcessionalLoanRequest,
+  ConcessionalLoanResponse,
 } from "@/types";
 import { offlineDb } from "./db";
 
@@ -95,6 +97,16 @@ export const apiClient = {
       body: JSON.stringify({ query }),
     });
     if (!res.ok) throw new Error(`Chat error ${res.status}`);
+    return res.json();
+  },
+
+  async calculateConcessionalLoan(data: ConcessionalLoanRequest): Promise<ConcessionalLoanResponse> {
+    const res = await fetch(`${API_BASE}/api/v1/advisor/concessional-calculator`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Concessional calculator error ${res.status}`);
     return res.json();
   },
 };
