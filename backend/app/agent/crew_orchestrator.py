@@ -186,22 +186,24 @@ class CrewOrchestrator:
             )
 
         # 5. EMI & Loan Calculation Output
-        elif "monthly_emi" in tool_result or "principal" in tool_result:
+        elif "monthly_emi" in tool_result or "emi" in tool_result:
             p = tool_result.get("principal", ctx.get("loan_amount", 200000))
-            emi = tool_result.get("monthly_emi", 0)
-            rate = tool_result.get("annual_interest_rate", 9.5)
-            months = tool_result.get("tenure_months", 60)
-            tot_interest = tool_result.get("total_interest", 0)
-            tot_payment = tool_result.get("total_payment", p + tot_interest)
+            emi = tool_result.get("monthly_emi") or tool_result.get("emi", 0)
+            rate = tool_result.get("annual_interest_rate") or tool_result.get("rate", 8.5)
+            months = tool_result.get("tenure_months") or tool_result.get("tenure", 60)
+            moratorium = tool_result.get("moratorium", 6)
+            effective_tenure = max(months - moratorium, 1)
+            tot_payment = round(emi * effective_tenure, 2)
+            tot_interest = round(max(tot_payment - p, 0), 2)
             years = months // 12
 
             if is_hi:
                 return (
                     f"बैंक लोन एवं ईएमआई (EMI) विस्तृत गणना:\n\n"
                     f"- मूल लोन राशि (Principal): ₹{p:,.0f}\n"
-                    f"- ब्याज दर: {rate}% प्रति वर्ष\n"
-                    f"- लोन अवधि: {months} महीने ({years} वर्ष)\n"
-                    f"- अनुमानित मासिक EMI: ₹{emi:,.0f}/माह\n"
+                    f"- वार्षिक ब्याज दर: {rate}% प्रति वर्ष\n"
+                    f"- कुल लोन अवधि: {months} महीने ({years} वर्ष) [शुरुआती {moratorium} महीने मोराटोरियम]\n"
+                    f"- अनुमानित मासिक EMI: ₹{emi:,.0f}/माह (किस्त)\n"
                     f"- कुल देय ब्याज: ₹{tot_interest:,.0f}\n"
                     f"- कुल चुकाई जाने वाली राशि: ₹{tot_payment:,.0f}\n\n"
                     f"यह लोन मुद्रा (MUDRA) या पीएमईजीपी (PMEGP) के तहत 15% से 35% सरकारी सब्सिडी के लिए पात्र है।"
@@ -209,8 +211,8 @@ class CrewOrchestrator:
             return (
                 f"Loan & EMI Financial Breakdown:\n\n"
                 f"- Principal Loan Amount: ₹{p:,.0f}\n"
-                f"- Interest Rate: {rate}% p.a.\n"
-                f"- Loan Tenure: {months} months ({years} years)\n"
+                f"- Annual Interest Rate: {rate}% p.a.\n"
+                f"- Total Loan Tenure: {months} months ({years} years) [Initial {moratorium} months moratorium]\n"
                 f"- Estimated Monthly EMI: ₹{emi:,.0f}/mo\n"
                 f"- Total Interest Payable: ₹{tot_interest:,.0f}\n"
                 f"- Total Repayment Amount: ₹{tot_payment:,.0f}\n\n"
@@ -225,20 +227,21 @@ class CrewOrchestrator:
             for s in schemes[:3]:
                 sname = s.get("scheme_name", "")
                 sub_pct = s.get("subsidy_percentage", 0)
-                max_sub = s.get("max_subsidy", 0)
-                own_contrib = s.get("own_contribution_percentage", 10)
-                dept = s.get("ministry_or_nodal_agency", "Govt. of India")
+                max_sub = s.get("max_subsidy_amount") or s.get("subsidy_amount") or s.get("max_subsidy", 0)
+                own_contrib = s.get("margin_required_percent") or s.get("own_contribution_percentage", 10)
+                dept = s.get("ministry") or s.get("ministry_or_nodal_agency", "Govt. of India")
+                sub_str = f"₹{max_sub:,.0f}" if max_sub > 0 else f"{sub_pct}%"
                 if is_hi:
                     blocks.append(
                         f"- {sname} ({dept}):\n"
-                        f"  * सब्सिडी: {sub_pct}% (अधिकतम ₹{max_sub:,.0f})\n"
+                        f"  * सब्सिडी: {sub_pct}% ({sub_str})\n"
                         f"  * आपका स्वयं का मार्जिन: {own_contrib}%\n"
                         f"  * बैंक लोन भाग: ~{100 - own_contrib}%"
                     )
                 else:
                     blocks.append(
                         f"- {sname} ({dept}):\n"
-                        f"  * Subsidy: {sub_pct}% (Up to ₹{max_sub:,.0f})\n"
+                        f"  * Subsidy: {sub_pct}% ({sub_str})\n"
                         f"  * Your Margin Required: {own_contrib}%\n"
                         f"  * Bank Loan Component: ~{100 - own_contrib}%"
                     )
@@ -256,31 +259,32 @@ class CrewOrchestrator:
             )
 
         # 7. Launch Timing & Seasonality Output
-        elif "best_launch_window" in tool_result or "best_season" in tool_result:
-            season = tool_result.get("best_season", "Post-Monsoon / Pre-Festival")
-            window = tool_result.get("best_launch_window", "October to February")
-            peak = tool_result.get("peak_demand_months", ["October", "November", "December"])
-            low = tool_result.get("lean_months", ["May", "June"])
-            reason = tool_result.get("rationale", "High seasonal demand and festive purchasing power.")
+        elif "recommended_launch_window" in tool_result or "best_launch_window" in tool_result or "best_season" in tool_result:
+            prep = tool_result.get("recommended_prep_period", "1-2 months prior")
+            window = tool_result.get("recommended_launch_window") or tool_result.get("best_launch_window", "September - October")
+            peak = tool_result.get("expected_peak_period", "October - March")
+            warning = tool_result.get("cashflow_warning_period", "Month 6-8")
+            risks = tool_result.get("seasonal_risk_factors", [])
+            risk_str = ", ".join(risks) if risks else "Seasonal liquidity fluctuations"
 
             if is_hi:
                 return (
-                    f"व्यवसाय शुरुआत का सबसे उत्तम समय (Timing Analysis):\n\n"
-                    f"- सर्वोत्तम मौसम: {season}\n"
-                    f"- लॉन्च विंडो: {window}\n"
-                    f"- सर्वाधिक बिक्री वाले महीने (Peak Demand): {', '.join(peak)}\n"
-                    f"- मंदे महीने (Lean Months): {', '.join(low)}\n"
-                    f"- मुख्य कारण: {reason}\n\n"
-                    f"अनुशंसा: लॉन्च से 45-60 दिन पहले लोन स्वीकृति और मशीनरी स्थापना पूरी कर लें।"
+                    f"व्यवसाय शुरुआत का सबसे उत्तम समय (Timing & Seasonality Analysis):\n\n"
+                    f"- तैयारी का समय (Prep Period): {prep}\n"
+                    f"- सर्वोत्तम लॉन्च विंडो: {window}\n"
+                    f"- सर्वाधिक बिक्री व मांग का समय (Peak Demand): {peak}\n"
+                    f"- सतर्क रहने की अवधि (Cashflow Watch): {warning}\n"
+                    f"- मौसमी जोखिम कारक: {risk_str}\n\n"
+                    f"सलाह: लॉन्च विंडो से 45-60 दिन पहले बैंक लोन स्वीकृति और शेड/मशीनरी स्थापना पूरी कर लें।"
                 )
             return (
                 f"Optimal Business Launch Timing & Seasonality:\n\n"
-                f"- Recommended Launch Season: {season}\n"
-                f"- Launch Window: {window}\n"
-                f"- Peak Demand Months: {', '.join(peak)}\n"
-                f"- Lean Months: {', '.join(low)}\n"
-                f"- Key Factor: {reason}\n\n"
-                f"Tip: Complete your bank loan approval and equipment setup 45-60 days before the launch window."
+                f"- Recommended Preparation Period: {prep}\n"
+                f"- Optimal Launch Window: {window}\n"
+                f"- Peak Demand Period: {peak}\n"
+                f"- Cashflow Caution Period: {warning}\n"
+                f"- Seasonal Risk Factors: {risk_str}\n\n"
+                f"Tip: Complete bank loan approvals and facility setup 45-60 days before the optimal launch window."
             )
 
         # 8. Cluster & Network Output
@@ -775,21 +779,28 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
                 "active_business": session_manager.get_active_business(user_id),
             }
 
-        if any(re.search(r'\b' + re.escape(w) + r'\b', query_lower) for w in ["emi", "loan", "repayment", "repay", "kist"]):
-            loan = ctx.get("loan_amount", 200000)
-            if "capital" in ctx:
+        if any(re.search(r'\b' + re.escape(w) + r'\b', query_lower) for w in ["emi", "loan", "repayment", "repay", "kist", "किस्त", "ईएमआई", "ऋण"]):
+            if "loan_amount" in entities:
+                loan = entities["loan_amount"]
+            elif "capital" in entities and any(k in query_lower for k in ["emi", "loan", "kist", "किस्त", "ईएमआई"]):
+                loan = entities["capital"]
+            elif "loan_amount" in ctx:
+                loan = ctx["loan_amount"]
+            elif "capital" in ctx:
                 plan = self.tools.tool_03_generate_financial_plan(ctx["capital"], ctx.get("business_idea", "general"))
-                loan = plan.get("loan_requirement", loan)
+                loan = plan.get("loan_requirement", 200000)
+            else:
+                loan = 200000
             tool_result = self.tools.tool_02_calculate_emi(principal=loan)
 
-        elif any(re.search(r'\b' + re.escape(w) + r'\b', query_lower) for w in ["scheme", "subsidy", "pmegp", "mudra", "sarkari", "government"]):
+        elif any(re.search(r'\b' + re.escape(w) + r'\b', query_lower) for w in ["scheme", "schemes", "subsidy", "subsidies", "pmegp", "mudra", "pmfme", "sarkari", "government", "योजना", "योजनाएं", "सब्सिडी"]):
             cost = ctx.get("project_cost", 450000)
             if "capital" in ctx:
                 plan = self.tools.tool_03_generate_financial_plan(ctx["capital"], ctx.get("business_idea", "general"))
                 cost = plan.get("project_cost", cost)
             tool_result = self.tools.tool_06_match_schemes(project_cost=cost)
 
-        elif any(phrase in query_lower for phrase in ["when to launch", "launch timing", "best season", "start month", "launch window"]):
+        elif any(phrase in query_lower for phrase in ["when to launch", "launch timing", "best season", "start month", "launch window", "timing", "season", "मौसम", "समय"]):
             tool_result = self.tools.tool_08_analyze_timing(
                 business_category=ctx.get("business_idea", "general"),
             )
