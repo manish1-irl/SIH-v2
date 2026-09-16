@@ -126,12 +126,34 @@ export interface SpeechRecognizerHandlers {
   onEnd: () => void;
 }
 
+export interface SpeechRecognizerOptions {
+  useInterim?: boolean;
+  overrideLang?: string;
+  isRetry?: boolean;
+}
+
+/**
+ * Check if the current browser is Brave
+ */
+export async function isBraveBrowser(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const nav = navigator as any;
+    if (nav.brave && typeof nav.brave.isBrave === "function") {
+      return await nav.brave.isBrave();
+    }
+  } catch {}
+  return false;
+}
+
 /**
  * Create a cross-browser SpeechRecognizer instance using Web Speech API
+ * Includes automatic self-healing fallback when encountering network resets or unsupported streaming
  */
 export function createSpeechRecognizer(
   lang: string,
-  handlers: SpeechRecognizerHandlers
+  handlers: SpeechRecognizerHandlers,
+  options?: SpeechRecognizerOptions
 ): any | null {
   if (!isSpeechRecognitionSupported()) return null;
 
@@ -141,11 +163,19 @@ export function createSpeechRecognizer(
   try {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
-    recognition.interimResults = true;
+    const useInterim = options?.useInterim !== false;
+    recognition.interimResults = useInterim;
     recognition.maxAlternatives = 1;
-    recognition.lang = getWebSpeechLangCode(lang);
+
+    // Use requested language or fallback
+    const targetLangCode = options?.overrideLang || getWebSpeechLangCode(lang);
+    recognition.lang = targetLangCode;
+
+    let hasReceivedResult = false;
+    let fallbackTriggered = false;
 
     recognition.onresult = (event: any) => {
+      hasReceivedResult = true;
       let interim = "";
       let final = "";
 
@@ -166,19 +196,71 @@ export function createSpeechRecognizer(
       }
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = async (event: any) => {
       const err = event.error || "unknown";
+
       if (err === "no-speech") {
         handlers.onError("No speech detected. Please speak closer to your microphone.");
-      } else if (err === "not-allowed") {
-        handlers.onError("Microphone permission denied. Please allow microphone access in your browser.");
-      } else if (err !== "aborted") {
-        handlers.onError(`Speech recognition error: ${err}`);
+        return;
       }
+
+      if (err === "not-allowed") {
+        handlers.onError("Microphone permission denied. Please allow microphone access in your browser.");
+        return;
+      }
+
+      if (err === "aborted") {
+        return;
+      }
+
+      if (err === "network") {
+        // First attempt fallback: if interim streaming failed on regional language,
+        // retry once in non-interim buffered mode with standard English (en-IN / navigator.language)
+        if (!options?.isRetry && !fallbackTriggered && !hasReceivedResult) {
+          fallbackTriggered = true;
+          try {
+            recognition.abort();
+          } catch {}
+
+          const fallbackLang = targetLangCode.startsWith("en")
+            ? (typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US")
+            : "en-IN";
+
+          const fallbackRecognizer = createSpeechRecognizer(lang, handlers, {
+            useInterim: false,
+            overrideLang: fallbackLang,
+            isRetry: true,
+          });
+
+          if (fallbackRecognizer) {
+            try {
+              fallbackRecognizer.start();
+              return;
+            } catch {}
+          }
+        }
+
+        // If fallback also failed or cannot be started, provide actionable diagnosis
+        const isBrave = await isBraveBrowser();
+        if (isBrave) {
+          handlers.onError(
+            "Brave Browser blocks Google speech services by default. To enable: open brave://settings/system and turn ON 'Use Google services for speech recognition', or open Sahaay in Google Chrome / Microsoft Edge."
+          );
+        } else {
+          handlers.onError(
+            "Speech recognition network error: Google speech servers could not be reached. If you have an ad-blocker (uBlock Origin, AdGuard), VPN, or firewall blocking speech services, please allow them or type your query directly."
+          );
+        }
+        return;
+      }
+
+      handlers.onError(`Speech recognition error: ${err}`);
     };
 
     recognition.onend = () => {
-      handlers.onEnd();
+      if (!fallbackTriggered) {
+        handlers.onEnd();
+      }
     };
 
     return recognition;
@@ -186,3 +268,4 @@ export function createSpeechRecognizer(
     return null;
   }
 }
+

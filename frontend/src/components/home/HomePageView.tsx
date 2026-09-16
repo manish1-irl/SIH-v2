@@ -27,6 +27,7 @@ import {
   Paperclip,
   FileText,
   Send,
+  AlertCircle,
 } from "lucide-react";
 import { UserProfile } from "@/lib/supabase";
 import { ReverseDiscovery } from "@/components/ReverseDiscovery";
@@ -120,6 +121,7 @@ export default function HomePageView({
   const [activeSpeakingMsgId, setActiveSpeakingMsgId] = useState<string | null>(null);
   const recognizerRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
 
@@ -237,22 +239,33 @@ export default function HomePageView({
     if (isVoiceListening) {
       if (recognizerRef.current) {
         try {
-          recognizerRef.current.stop();
+          recognizerRef.current.abort();
         } catch {}
+        recognizerRef.current = null;
       }
       setIsVoiceListening(false);
       return;
     }
 
     if (!isSpeechRecognitionSupported()) {
-      setSpeechNotice("Speech recognition is not supported in this browser. Please type your query or use Google Chrome / Microsoft Edge.");
-      setTimeout(() => setSpeechNotice(null), 5000);
+      setSpeechNotice(
+        "Speech recognition is not supported in this browser. Please type your query or use Google Chrome / Microsoft Edge."
+      );
+      setTimeout(() => setSpeechNotice(null), 8000);
       return;
     }
 
     setSpeechNotice(null);
     stopSpeaking();
     setActiveSpeakingMsgId(null);
+
+    // Cleanly abort previous session before starting a new one
+    if (recognizerRef.current) {
+      try {
+        recognizerRef.current.abort();
+      } catch {}
+      recognizerRef.current = null;
+    }
 
     const recognizer = createSpeechRecognizer(language, {
       onResult: (transcript, isFinal) => {
@@ -267,7 +280,7 @@ export default function HomePageView({
       onError: (err) => {
         setIsVoiceListening(false);
         setSpeechNotice(err);
-        setTimeout(() => setSpeechNotice(null), 4500);
+        setTimeout(() => setSpeechNotice(null), 10000);
       },
       onEnd: () => {
         setIsVoiceListening(false);
@@ -433,6 +446,7 @@ export default function HomePageView({
 
               {/* Input Field */}
               <input
+                ref={inputRef}
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
@@ -525,17 +539,45 @@ export default function HomePageView({
               )}
             </div>
 
-            {/* Speech recognition notice/error banner */}
+            {/* Speech recognition notice/error banner with actionable buttons */}
             {speechNotice && (
-              <div className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 text-left font-medium animate-in fade-in flex items-center justify-between">
-                <span>{speechNotice}</span>
-                <button
-                  type="button"
-                  onClick={() => setSpeechNotice(null)}
-                  className="text-amber-700 hover:text-amber-950 font-bold ml-2 text-xs"
-                >
-                  ×
-                </button>
+              <div className="text-[11px] text-amber-950 bg-amber-50/95 backdrop-blur-md border border-amber-300/80 rounded-2xl p-3 text-left font-medium animate-in fade-in shadow-xs space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span className="leading-relaxed">{speechNotice}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSpeechNotice(null)}
+                    className="text-amber-600 hover:text-amber-950 font-bold p-0.5 rounded-full hover:bg-amber-100/60 transition-colors text-xs shrink-0 cursor-pointer"
+                    title="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 pl-6 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSpeechNotice(null);
+                      inputRef.current?.focus();
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-antigravity-navy text-white text-[10px] font-semibold hover:bg-antigravity-orange transition-colors cursor-pointer shadow-xs"
+                  >
+                    Type Message Instead
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSpeechNotice(null);
+                      handleMicClick();
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-amber-200/90 text-amber-950 text-[10px] font-semibold hover:bg-amber-300 transition-colors cursor-pointer border border-amber-300"
+                  >
+                    Retry Voice
+                  </button>
+                </div>
               </div>
             )}
           </div>
