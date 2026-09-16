@@ -708,7 +708,7 @@ export default function FeasibilityMatrixFlow({
                 <div className="mb-5">
                   <div className="w-full h-2.5 rounded-full bg-antigravity-navy/10 overflow-hidden mb-1.5 relative">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-amber-600 to-[#8B2500] transition-all duration-1000"
+                      className="h-full rounded-full bg-[#D96B27] transition-all duration-1000"
                       style={{ width: `${competitorDensity.density_index}%` }}
                     />
                   </div>

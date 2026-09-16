@@ -273,13 +273,13 @@ export default function PersonalDashboardView({
           className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity group cursor-pointer"
           title="Click to return to Sahaay Home"
         >
-          <div className="relative w-12 h-12 group-hover:scale-105 transition-transform flex items-center justify-center">
+          <div className="relative w-16 h-16 sm:w-20 sm:h-20 group-hover:scale-105 transition-transform flex items-center justify-center">
             <Image
               src="/sahaay-logo.png"
               alt="Sahaay Logo"
-              width={48}
-              height={48}
-              className="object-contain drop-shadow-sm"
+              width={80}
+              height={80}
+              className="object-contain drop-shadow-xs"
               priority
             />
           </div>
@@ -1000,7 +1000,7 @@ export default function PersonalDashboardView({
             </div>
 
             {/* CARD 4: AI BUSINESS CO-PILOT OPERATIONAL STATION (WITHOUT TIME TRACKER PER REQUEST) */}
-            <div className="rounded-3xl bg-gradient-to-b from-[#0A2540] to-[#144A29] p-6 text-white shadow-md relative overflow-hidden">
+            <div className="rounded-3xl bg-[#0A2540] p-6 text-white shadow-md relative overflow-hidden">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />

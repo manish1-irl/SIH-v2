@@ -228,13 +228,13 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       <header className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-5 flex items-center justify-between z-20">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
-          <div className="relative w-12 h-12 flex items-center justify-center">
+          <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
             <Image
               src="/sahaay-logo.png"
               alt="Sahaay Logo"
-              width={48}
-              height={48}
-              className="object-contain drop-shadow-sm"
+              width={80}
+              height={80}
+              className="object-contain drop-shadow-xs"
               priority
             />
           </div>
@@ -393,7 +393,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-gradient-to-r from-[#0A2540] via-[#1B4332] to-[#2D5A27] hover:brightness-110 active:scale-[0.99] py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
+                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-[#0A2540] hover:bg-[#D96B27] active:scale-[0.99] py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -479,7 +479,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-gradient-to-r from-[#0A2540] via-[#1B4332] to-[#2D5A27] hover:brightness-110 active:scale-[0.99] py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
+                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-[#0A2540] hover:bg-[#D96B27] active:scale-[0.99] py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
               >
                 {isLoading ? (
                   <>

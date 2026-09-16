@@ -553,6 +553,8 @@ export default function HomePage() {
       activeBusinessIdea={businessIdea}
       activeLocality={locality}
       activeCapital={capital}
+      autoSpeak={autoSpeak}
+      onToggleAutoSpeak={() => setAutoSpeak((prev) => !prev)}
     />
   );
 }

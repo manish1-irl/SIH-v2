@@ -17,6 +17,7 @@ import {
   User,
   Bot,
   Volume2,
+  VolumeX,
   Loader2,
   Check,
   LayoutDashboard,
@@ -30,6 +31,13 @@ import {
 import { UserProfile } from "@/lib/supabase";
 import { ReverseDiscovery } from "@/components/ReverseDiscovery";
 import { ReverseFeasibilityRecommendation } from "@/types";
+import {
+  createSpeechRecognizer,
+  isSpeechRecognitionSupported,
+  speakText,
+  stopSpeaking,
+  cleanTextForSpeech,
+} from "@/lib/speech";
 
 export interface ChatAttachment {
   id: string;
@@ -75,6 +83,8 @@ interface HomePageViewProps {
   activeBusinessIdea?: string;
   activeLocality?: string;
   activeCapital?: number;
+  autoSpeak?: boolean;
+  onToggleAutoSpeak?: () => void;
 }
 
 export default function HomePageView({
@@ -83,7 +93,7 @@ export default function HomePageView({
   language,
   onLanguageChange,
   languages,
-  isRecording,
+  isRecording = false,
   onStartRecording,
   onStopRecording,
   onSearchSubmit,
@@ -99,15 +109,33 @@ export default function HomePageView({
   activeBusinessIdea = "Dairy",
   activeLocality = "Bassi",
   activeCapital = 100000,
+  autoSpeak = true,
+  onToggleAutoSpeak,
 }: HomePageViewProps) {
   const [inputText, setInputText] = useState("");
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [speechNotice, setSpeechNotice] = useState<string | null>(null);
+  const [activeSpeakingMsgId, setActiveSpeakingMsgId] = useState<string | null>(null);
+  const recognizerRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
 
   const selectedLang = languages.find((l) => l.code === language) || languages[0];
+
+  // Stop speech recognition and synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (recognizerRef.current) {
+        try {
+          recognizerRef.current.abort();
+        } catch {}
+      }
+      stopSpeaking();
+    };
+  }, []);
 
   // Prevent automatic scroll on initial page load; only scroll upon subsequent messages
   useEffect(() => {
@@ -119,6 +147,34 @@ export default function HomePageView({
       chatScrollRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isProcessing]);
+
+  // Auto-speak new agent responses when enabled
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    if (messages.length > 0 && autoSpeak) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role === "agent") {
+        handleToggleSpeak(lastMsg);
+      }
+    }
+  }, [messages.length]);
+
+  const handleToggleSpeak = (msg: HomeChatMessage) => {
+    if (activeSpeakingMsgId === msg.id) {
+      stopSpeaking();
+      setActiveSpeakingMsgId(null);
+    } else {
+      stopSpeaking();
+      setActiveSpeakingMsgId(msg.id);
+      speakText(
+        msg.text,
+        language,
+        () => setActiveSpeakingMsgId(msg.id),
+        () => setActiveSpeakingMsgId((cur) => (cur === msg.id ? null : cur)),
+        () => setActiveSpeakingMsgId(null)
+      );
+    }
+  };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -153,6 +209,15 @@ export default function HomePageView({
     const text = inputText.trim();
     if (!text && attachments.length === 0) return;
 
+    stopSpeaking();
+    setActiveSpeakingMsgId(null);
+    if (isVoiceListening && recognizerRef.current) {
+      try {
+        recognizerRef.current.stop();
+      } catch {}
+      setIsVoiceListening(false);
+    }
+
     onSearchSubmit(
       text || (attachments.length > 0 ? `Uploaded ${attachments.length} attachment(s): ${attachments.map((a) => a.name).join(", ")}` : ""),
       attachments
@@ -167,11 +232,56 @@ export default function HomePageView({
     }
   };
 
+  // Browser-native Web Speech Recognition
   const handleMicClick = () => {
-    if (isRecording) {
-      onStopRecording();
-    } else {
-      onStartRecording();
+    if (isVoiceListening) {
+      if (recognizerRef.current) {
+        try {
+          recognizerRef.current.stop();
+        } catch {}
+      }
+      setIsVoiceListening(false);
+      return;
+    }
+
+    if (!isSpeechRecognitionSupported()) {
+      setSpeechNotice("Speech recognition is not supported in this browser. Please type your query or use Google Chrome / Microsoft Edge.");
+      setTimeout(() => setSpeechNotice(null), 5000);
+      return;
+    }
+
+    setSpeechNotice(null);
+    stopSpeaking();
+    setActiveSpeakingMsgId(null);
+
+    const recognizer = createSpeechRecognizer(language, {
+      onResult: (transcript, isFinal) => {
+        setInputText(transcript);
+        if (isFinal && transcript.trim()) {
+          setIsVoiceListening(false);
+          onSearchSubmit(transcript.trim(), attachments);
+          setInputText("");
+          setAttachments([]);
+        }
+      },
+      onError: (err) => {
+        setIsVoiceListening(false);
+        setSpeechNotice(err);
+        setTimeout(() => setSpeechNotice(null), 4500);
+      },
+      onEnd: () => {
+        setIsVoiceListening(false);
+      },
+    });
+
+    if (recognizer) {
+      recognizerRef.current = recognizer;
+      try {
+        recognizer.start();
+        setIsVoiceListening(true);
+      } catch {
+        setIsVoiceListening(false);
+      }
     }
   };
 
@@ -185,13 +295,13 @@ export default function HomePageView({
           className="flex items-center hover:opacity-90 transition-opacity cursor-pointer group"
           title="Return to Sahaay Home"
         >
-          <div className="relative w-12 h-12 sm:w-14 sm:h-14 group-hover:scale-105 transition-transform flex items-center justify-center">
+          <div className="relative w-16 h-16 sm:w-20 sm:h-20 group-hover:scale-105 transition-transform flex items-center justify-center">
             <Image
               src="/sahaay-logo.png"
               alt="Sahaay Logo"
-              width={56}
-              height={56}
-              className="object-contain drop-shadow-sm"
+              width={80}
+              height={80}
+              className="object-contain drop-shadow-xs"
               priority
             />
           </div>
@@ -257,7 +367,7 @@ export default function HomePageView({
       <main className="flex-1 flex flex-col items-center justify-start px-4 sm:px-6 pt-4 sm:pt-6 pb-12 z-20 w-full max-w-4xl mx-auto">
         <div className="w-full flex flex-col items-center text-center">
           {/* Brand Title */}
-          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight drop-shadow-xs select-none mb-2 bg-gradient-to-r from-[#0A2540] via-[#1B4332] to-[#D96B27] bg-clip-text text-transparent">
+          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight drop-shadow-xs select-none mb-2 text-[#0A2540]">
             Sahaay
           </h1>
 
@@ -327,7 +437,11 @@ export default function HomePageView({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isRecording ? "Listening to voice input..." : `Ask about any business in ${selectedLang.native}...`}
+                placeholder={
+                  isVoiceListening
+                    ? `Listening in ${selectedLang.native}... Speak clearly`
+                    : `Ask about any business in ${selectedLang.native}...`
+                }
                 className="flex-1 min-w-0 bg-transparent font-sans text-xs sm:text-sm text-antigravity-charcoal placeholder:text-antigravity-navy/40 focus:outline-none px-1"
               />
 
@@ -397,18 +511,33 @@ export default function HomePageView({
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={handleMicClick}
                   className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all shrink-0 shadow-sm cursor-pointer ${
-                    isRecording
-                      ? "bg-red-500 text-white animate-pulse shadow-md"
+                    isVoiceListening
+                      ? "bg-red-500 text-white animate-pulse shadow-md ring-2 ring-red-300"
                       : "bg-antigravity-navy text-white hover:bg-antigravity-orange"
                   }`}
-                  title={isRecording ? "Stop voice input" : "Speak in any Indian language"}
+                  title={isVoiceListening ? "Listening... Click to stop" : `Speak in ${selectedLang.name} (${selectedLang.native})`}
                 >
-                  {isRecording ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white" />}
+                  {isVoiceListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white" />}
                 </button>
               )}
             </div>
+
+            {/* Speech recognition notice/error banner */}
+            {speechNotice && (
+              <div className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 text-left font-medium animate-in fade-in flex items-center justify-between">
+                <span>{speechNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setSpeechNotice(null)}
+                  className="text-amber-700 hover:text-amber-950 font-bold ml-2 text-xs"
+                >
+                  ×
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 4 Feature Action Pills with Vibrant Distinct Accents & Glassmorphism */}
@@ -477,6 +606,34 @@ export default function HomePageView({
           {/* INLINE CHAT CONVERSATION DIRECTLY ON HOMEPAGE (NO REDIRECT TO ANOTHER PAGE) */}
           {messages.length > 0 && (
             <div className="w-full max-w-2xl mt-6 space-y-4 max-h-[50vh] overflow-y-auto pr-1 text-left pb-4 relative z-10">
+              <div className="flex items-center justify-between px-1 pb-1 border-b border-antigravity-navy/10 text-[11px] text-antigravity-navy/60">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onToggleAutoSpeak}
+                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full border transition-all cursor-pointer text-[10px] font-medium ${
+                      autoSpeak
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs"
+                        : "bg-neutral-100 text-neutral-600 border-neutral-300"
+                    }`}
+                    title={autoSpeak ? "Auto-speak is ON (Click to mute auto-speech)" : "Auto-speak is OFF (Click to turn on auto-speech)"}
+                  >
+                    {autoSpeak ? <Volume2 className="w-3 h-3 text-emerald-600" /> : <VolumeX className="w-3 h-3 text-neutral-500" />}
+                    <span>Auto Voice: {autoSpeak ? "ON" : "OFF"}</span>
+                  </button>
+                </div>
+                {onResetChat && (
+                  <button
+                    type="button"
+                    onClick={onResetChat}
+                    className="flex items-center gap-1 text-antigravity-navy/50 hover:text-antigravity-orange text-[10px] cursor-pointer"
+                    title="Reset conversation"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Chat</span>
+                  </button>
+                )}
+              </div>
 
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -538,7 +695,7 @@ export default function HomePageView({
 
                         {/* DPR Ready & Confirmation Card: Confirm and Proceed to Dashboard */}
                         {msg.showProceedToDashboard && (
-                          <div className="mt-3 p-5 rounded-2xl bg-gradient-to-r from-[#0A2540] to-[#2D5A27] text-white shadow-elevated">
+                          <div className="mt-3 p-5 rounded-2xl bg-[#0A2540] text-white shadow-elevated">
                             <div className="flex items-center gap-2 mb-1.5">
                               <Sparkles className="w-4 h-4 text-[#D96B27]" />
                               <h4 className="font-serif font-bold text-sm">Detailed Project Report (DPR) Ready & Validated</h4>
@@ -557,16 +714,30 @@ export default function HomePageView({
                         )}
 
                         {/* Message Metadata */}
-                        <div className={`flex items-center gap-2 mt-1 px-1 ${msg.role === "user" ? "justify-end" : ""}`}>
+                        <div className={`flex items-center gap-2 mt-1.5 px-1 ${msg.role === "user" ? "justify-end" : ""}`}>
                           <span className="font-sans text-[10px] text-antigravity-navy/50">
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </span>
-                          {msg.audioBase64 && (
+                          {msg.role === "agent" && (
                             <button
-                              onClick={() => onPlayAudio(msg.audioBase64!)}
-                              className="font-sans text-[10px] text-antigravity-orange flex items-center gap-0.5 hover:underline cursor-pointer"
+                              type="button"
+                              onClick={() => handleToggleSpeak(msg)}
+                              className={`font-sans text-[10px] flex items-center gap-1 hover:underline cursor-pointer transition-colors ${
+                                activeSpeakingMsgId === msg.id
+                                  ? "text-red-500 font-bold animate-pulse"
+                                  : "text-antigravity-orange font-medium"
+                              }`}
+                              title={activeSpeakingMsgId === msg.id ? "Stop voice readout" : `Listen in ${selectedLang.name}`}
                             >
-                              <Volume2 className="w-2.5 h-2.5" /> listen
+                              {activeSpeakingMsgId === msg.id ? (
+                                <>
+                                  <VolumeX className="w-3 h-3" /> Stop
+                                </>
+                              ) : (
+                                <>
+                                  <Volume2 className="w-3 h-3" /> Listen
+                                </>
+                              )}
                             </button>
                           )}
                         </div>
@@ -585,7 +756,7 @@ export default function HomePageView({
                     <div className="bg-white/95 backdrop-blur-xl border border-antigravity-navy/10 p-3.5 rounded-2xl rounded-tl-sm shadow-elevated flex items-center gap-2">
                       <Loader2 className="w-4 h-4 text-antigravity-sage animate-spin" />
                       <span className="font-sans text-xs text-antigravity-navy/60">
-                        {isRecording ? "Listening to your voice..." : "Sahaay is computing live parameters..."}
+                        {isVoiceListening ? `Listening in ${selectedLang.name}...` : "Sahaay is computing live parameters..."}
                       </span>
                     </div>
                   </div>

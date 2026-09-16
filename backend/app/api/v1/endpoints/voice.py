@@ -181,18 +181,6 @@ async def voice_chat(request: ConversationalTurnRequest):
 
     response_text = response_data.get("response", "")
     voice_audio = ""
-    if bhashini_client.is_configured and response_text:
-        try:
-            import asyncio
-            voice_audio = await asyncio.wait_for(
-                bhashini_client.english_text_to_voice(
-                    text=response_text,
-                    target_language=request.language,
-                ),
-                timeout=5.0,
-            )
-        except Exception:
-            voice_audio = ""
 
     return {
         "user_message": user_text,

@@ -18,7 +18,7 @@
 }
 
 html {
-  background-color: var(--color-canvas-bg);
+  background-color: #FAF7F2;
 }
 
 body {
@@ -26,37 +26,11 @@ body {
   font-size: 1rem;
   line-height: 1.55;
   color: var(--color-charcoal);
-  background-color: transparent;
+  background-color: #FAF7F2;
   -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3, h4, .font-heading {
   font-family: var(--font-serif);
   color: var(--color-navy);
-}
-
-@keyframes float-slow {
-  0%, 100% {
-    transform: translateY(0px) scale(1);
-  }
-  50% {
-    transform: translateY(-20px) scale(1.05);
-  }
-}
-
-@keyframes float-reverse {
-  0%, 100% {
-    transform: translateY(0px) scale(1);
-  }
-  50% {
-    transform: translateY(20px) scale(0.96);
-  }
-}
-
-.animate-float-slow {
-  animation: float-slow 14s ease-in-out infinite;
-}
-
-.animate-float-reverse {
-  animation: float-reverse 18s ease-in-out infinite;
 }
