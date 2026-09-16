@@ -182,31 +182,18 @@ export default function HomePageView({
         {/* Official Sahaay Logo at Left Topmost Corner (Click to Home) */}
         <button
           onClick={() => onNavigate("home")}
-          className="flex items-center gap-2 sm:gap-2.5 text-left hover:opacity-90 transition-opacity cursor-pointer group"
+          className="flex items-center hover:opacity-90 transition-opacity cursor-pointer group"
           title="Return to Sahaay Home"
         >
-          <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden bg-white/90 backdrop-blur-md shadow-xs border border-emerald-100 flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
+          <div className="relative w-12 h-12 sm:w-14 sm:h-14 group-hover:scale-105 transition-transform flex items-center justify-center">
             <Image
               src="/sahaay-logo.png"
               alt="Sahaay Logo"
-              width={36}
-              height={36}
-              className="object-contain"
+              width={56}
+              height={56}
+              className="object-contain drop-shadow-sm"
               priority
             />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-serif font-bold text-base sm:text-lg text-antigravity-navy tracking-tight leading-none drop-shadow-sm">
-                Sahaay
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 tracking-wide uppercase">
-                AI
-              </span>
-            </div>
-            <span className="font-sans text-[10px] text-emerald-800 font-medium block leading-tight">
-              Rural Business Advisor
-            </span>
           </div>
         </button>
 
@@ -490,16 +477,6 @@ export default function HomePageView({
           {/* INLINE CHAT CONVERSATION DIRECTLY ON HOMEPAGE (NO REDIRECT TO ANOTHER PAGE) */}
           {messages.length > 0 && (
             <div className="w-full max-w-2xl mt-6 space-y-4 max-h-[50vh] overflow-y-auto pr-1 text-left pb-4 relative z-10">
-              {/* Active Context Status Pill */}
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <div className="px-3.5 py-1 rounded-full bg-white/85 backdrop-blur-md border border-antigravity-navy/10 text-[11px] font-semibold text-antigravity-navy shadow-xs flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>
-                    Current Parameters: <strong className="text-[#D96B27]">{activeBusinessIdea}</strong> in{" "}
-                    <strong>{activeLocality}</strong> (Margin: <strong>₹{activeCapital.toLocaleString("en-IN")}</strong>)
-                  </span>
-                </div>
-              </div>
 
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>

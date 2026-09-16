@@ -228,13 +228,13 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       <header className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-5 flex items-center justify-between z-20">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 rounded-2xl overflow-hidden bg-white/90 backdrop-blur-md p-1 border border-white/80 shadow-sm flex items-center justify-center">
+          <div className="relative w-12 h-12 flex items-center justify-center">
             <Image
               src="/sahaay-logo.png"
               alt="Sahaay Logo"
-              width={36}
-              height={36}
-              className="object-contain"
+              width={48}
+              height={48}
+              className="object-contain drop-shadow-sm"
               priority
             />
           </div>

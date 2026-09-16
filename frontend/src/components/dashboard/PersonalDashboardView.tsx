@@ -273,13 +273,13 @@ export default function PersonalDashboardView({
           className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity group cursor-pointer"
           title="Click to return to Sahaay Home"
         >
-          <div className="relative w-10 h-10 rounded-2xl overflow-hidden bg-white shadow-sm border border-emerald-100 flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
+          <div className="relative w-12 h-12 group-hover:scale-105 transition-transform flex items-center justify-center">
             <Image
               src="/sahaay-logo.png"
               alt="Sahaay Logo"
-              width={40}
-              height={40}
-              className="object-contain"
+              width={48}
+              height={48}
+              className="object-contain drop-shadow-sm"
               priority
             />
           </div>
