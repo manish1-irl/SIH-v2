@@ -35,8 +35,11 @@ class AgentTools:
     def tool_03_generate_financial_plan(
         capital: float,
         business_category: str = "general",
+        project_cost: Optional[float] = None,
     ) -> Dict[str, Any]:
-        plan = DeterministicFinancialEngine.generate_financial_plan(capital, business_category)
+        plan = DeterministicFinancialEngine.generate_financial_plan(
+            capital, business_category, project_cost=project_cost
+        )
         return plan.model_dump()
 
     @staticmethod
@@ -46,9 +49,10 @@ class AgentTools:
         locality: str,
         state: str,
         demographics: Optional[Dict[str, Any]] = None,
+        project_cost: Optional[float] = None,
     ) -> Dict[str, Any]:
         result = FeasibilityEngine.calculate_feasibility(
-            capital, business_idea, locality, state, demographics or {}
+            capital, business_idea, locality, state, demographics or {}, project_cost=project_cost
         )
         return result.model_dump()
 
@@ -112,7 +116,29 @@ class AgentTools:
         evidence_dict: Dict[str, Any],
         applicant_name: str = "Entrepreneur",
     ) -> Dict[str, Any]:
-        evidence = EvidenceObject(**evidence_dict)
+        if "user_inputs" in evidence_dict and "financial_data" in evidence_dict:
+            evidence = EvidenceObject(**evidence_dict)
+        else:
+            from datetime import datetime, timezone
+            cap = float(evidence_dict.get("capital", 100000.0))
+            biz = str(evidence_dict.get("business_idea", "Dairy Enterprise"))
+            loc = str(evidence_dict.get("locality", "Bassi"))
+            st = str(evidence_dict.get("state", "Rajasthan"))
+            pc = float(evidence_dict["project_cost"]) if evidence_dict.get("project_cost") else None
+            fin = DeterministicFinancialEngine.generate_financial_plan(cap, biz, project_cost=pc)
+            feas = FeasibilityEngine.calculate_feasibility(cap, biz, loc, st, {}, project_cost=pc)
+            sch = SchemeEngine.match_schemes(fin.project_cost, biz)
+            tm = TimeMachineEngine.analyze_timing(biz)
+            cl = ClusterEngine.find_clusters(loc, biz)
+            evidence = EvidenceObject(
+                user_inputs=evidence_dict,
+                financial_data=fin,
+                scheme_data=sch,
+                time_machine=tm,
+                cluster_data=cl,
+                feasibility_scores=feas,
+                retrieved_at=datetime.now(timezone.utc).isoformat(),
+            )
         dpr = DPREngine.generate_29_section_dpr(evidence, applicant_name)
         return dpr.model_dump()
 
@@ -170,8 +196,11 @@ class AgentTools:
     def tool_16_cashflow_analysis(
         capital: float,
         business_category: str = "general",
+        project_cost: Optional[float] = None,
     ) -> Dict[str, Any]:
-        plan = DeterministicFinancialEngine.generate_financial_plan(capital, business_category)
+        plan = DeterministicFinancialEngine.generate_financial_plan(
+            capital, business_category, project_cost=project_cost
+        )
         cashflows = plan.monthly_cashflow_projection
         total_revenue = sum(c.projected_revenue for c in cashflows)
         total_expenses = sum(c.operating_expenses + c.emi for c in cashflows)
@@ -192,22 +221,91 @@ class AgentTools:
     ) -> Dict[str, Any]:
         from app.engines.schemes import OFFICIAL_SCHEMES
         for s in OFFICIAL_SCHEMES:
-            if s["id"] == scheme_id and scheme_id == "pmegp":
-                if is_special:
-                    subsidy_pct = s["subsidy_rural_special"] if is_rural else s["subsidy_urban_special"]
-                    margin_pct = s["margin_special"]
+            if s["id"] == scheme_id:
+                if scheme_id == "pmegp":
+                    if is_special:
+                        subsidy_pct = s["subsidy_rural_special"] if is_rural else s["subsidy_urban_special"]
+                        margin_pct = s["margin_special"]
+                    else:
+                        subsidy_pct = s["subsidy_rural_general"] if is_rural else s["subsidy_urban_general"]
+                        margin_pct = s["margin_general"]
+                    subsidy_amount = round(project_cost * (subsidy_pct / 100), 2)
+                    margin_amount = round(project_cost * (margin_pct / 100), 2)
+                    loan_amount = round(max(project_cost - margin_amount - subsidy_amount, 0.0), 2)
+                    return {
+                        "scheme": s["name"],
+                        "subsidy_percentage": subsidy_pct,
+                        "subsidy_amount": subsidy_amount,
+                        "margin_required": margin_amount,
+                        "loan_amount": loan_amount,
+                    }
+                elif scheme_id == "pmfme":
+                    subsidy_pct = s["subsidy_percentage"]
+                    subsidy_amount = min(round(project_cost * (subsidy_pct / 100), 2), s["max_subsidy"])
+                    margin_amount = round(project_cost * (s["margin_required"] / 100), 2)
+                    loan_amount = round(max(project_cost - margin_amount - subsidy_amount, 0.0), 2)
+                    return {
+                        "scheme": s["name"],
+                        "subsidy_percentage": subsidy_pct,
+                        "subsidy_amount": subsidy_amount,
+                        "margin_required": margin_amount,
+                        "loan_amount": loan_amount,
+                    }
+                elif scheme_id in ["pm_mudra_shishu", "pm_mudra_kishore", "pm_mudra_tarun"]:
+                    margin_amount = round(project_cost * (s["margin_required"] / 100), 2)
+                    loan_amount = round(max(project_cost - margin_amount, 0.0), 2)
+                    return {
+                        "scheme": s["name"],
+                        "subsidy_percentage": 0.0,
+                        "subsidy_amount": 0.0,
+                        "margin_required": margin_amount,
+                        "loan_amount": loan_amount,
+                    }
+                elif scheme_id == "pm_kusum":
+                    subsidy_pct = s["subsidy_percentage"]
+                    subsidy_amount = round(project_cost * (subsidy_pct / 100), 2)
+                    margin_amount = round(project_cost * (s["margin_required"] / 100), 2)
+                    loan_amount = round(max(project_cost - margin_amount - subsidy_amount, 0.0), 2)
+                    return {
+                        "scheme": s["name"],
+                        "subsidy_percentage": subsidy_pct,
+                        "subsidy_amount": subsidy_amount,
+                        "margin_required": margin_amount,
+                        "loan_amount": loan_amount,
+                    }
+                elif scheme_id == "nlm":
+                    subsidy_pct = s["subsidy_percentage"]
+                    subsidy_amount = min(round(project_cost * (subsidy_pct / 100), 2), s["max_subsidy"])
+                    margin_amount = round(project_cost * (s["margin_required"] / 100), 2)
+                    loan_amount = round(max(project_cost - margin_amount - subsidy_amount, 0.0), 2)
+                    return {
+                        "scheme": s["name"],
+                        "subsidy_percentage": subsidy_pct,
+                        "subsidy_amount": subsidy_amount,
+                        "margin_required": margin_amount,
+                        "loan_amount": loan_amount,
+                    }
+                elif scheme_id == "pm_vishwakarma":
+                    return {
+                        "scheme": s["name"],
+                        "toolkit_grant": s["toolkit_grant"],
+                        "interest_rate": s["concessional_interest_pct"],
+                        "margin_required": 0.0,
+                        "loan_amount": min(project_cost, s["first_tranche_loan"] + s["second_tranche_loan"]),
+                    }
                 else:
-                    subsidy_pct = s["subsidy_rural_general"] if is_rural else s["subsidy_urban_general"]
-                    margin_pct = s["margin_general"]
-                subsidy_amount = round(project_cost * (subsidy_pct / 100), 2)
-                return {
-                    "scheme": s["name"],
-                    "subsidy_percentage": subsidy_pct,
-                    "subsidy_amount": subsidy_amount,
-                    "margin_required": round(project_cost * (margin_pct / 100), 2),
-                    "loan_amount": round(project_cost - project_cost * (margin_pct / 100) - subsidy_amount, 2),
-                }
-        return {"error": "Scheme not found"}
+                    margin_amount = round(project_cost * (s.get("margin_required", 10.0) / 100), 2)
+                    loan_amount = round(max(project_cost - margin_amount, 0.0), 2)
+                    return {
+                        "scheme": s["name"],
+                        "subsidy_percentage": s.get("subsidy_percentage", 0.0),
+                        "subsidy_amount": 0.0,
+                        "margin_required": margin_amount,
+                        "loan_amount": loan_amount,
+                        "interest_subvention": s.get("interest_subvention_pct", 0.0),
+                        "guarantee_coverage": s.get("guarantee_coverage_pct", 0.0),
+                    }
+        return {"error": f"Scheme {scheme_id} not found in official schemes list"}
 
     @staticmethod
     def tool_18_business_category_analysis(
@@ -216,7 +314,7 @@ class AgentTools:
         idea_lower = business_idea.lower()
         if any(k in idea_lower for k in ["dairy", "milk", "cattle"]):
             return {"category": "Dairy & Animal Husbandry", "sector": "Agriculture", "risk_profile": "Medium", "typical_margin": "10-15%"}
-        elif any(k in idea_lower for k in ["food", "spice", "processing", "mill"]):
+        elif any(k in idea_lower for k in ["food", "spice", "processing", "mill", "oil", "expeller", "mustard", "flour", "grain"]):
             return {"category": "Food Processing", "sector": "MSME Manufacturing", "risk_profile": "Low-Medium", "typical_margin": "12-18%"}
         elif any(k in idea_lower for k in ["retail", "shop", "store", "trading"]):
             return {"category": "Retail & Trading", "sector": "Services", "risk_profile": "Low", "typical_margin": "8-12%"}
@@ -246,17 +344,54 @@ class AgentTools:
         locality: str,
         business_category: str,
     ) -> Dict[str, Any]:
+        loc_profile = LocationIntelligenceEngine.analyze_locality(locality)
+        cat_lower = business_category.lower()
+        if any(k in cat_lower for k in ["kirana", "retail", "general store", "grocery"]):
+            density_per_k = 3.8
+        elif any(k in cat_lower for k in ["tailor", "garment", "clothing"]):
+            density_per_k = 2.4
+        elif any(k in cat_lower for k in ["dairy", "milk", "cattle"]):
+            density_per_k = 1.8
+        elif any(k in cat_lower for k in ["food", "spice", "bakery", "flour"]):
+            density_per_k = 1.2
+        elif any(k in cat_lower for k in ["solar", "renewable"]):
+            density_per_k = 0.4
+        else:
+            density_per_k = 1.5
+
+        estimated_competitors = max(int(round((loc_profile.households / 1000.0) * density_per_k)), 1)
+        is_saturated = any(
+            any(kw in s.sector.lower() for kw in cat_lower.split())
+            for s in loc_profile.saturated_sectors
+        )
+        is_gap = any(
+            any(kw in g.business_type.lower() for kw in cat_lower.split())
+            for g in loc_profile.unmet_demand_gaps
+        )
+        if is_gap:
+            market_saturation = "Low (Untapped Market Gap)"
+        elif is_saturated or estimated_competitors > 20:
+            market_saturation = "High"
+        elif estimated_competitors > 8:
+            market_saturation = "Medium-High"
+        else:
+            market_saturation = "Moderate"
+
+        diff_opps = [
+            "Local quality certification (FSSAI/Agmark/Organic standards)",
+            "Direct B2B linkage with local agricultural mandi and institutional buyers",
+            "Modern digital inventory management and doorstep delivery",
+        ]
+        if is_gap:
+            diff_opps.insert(0, f"Pioneer first-mover advantage fulfilling unmet local demand in {locality}")
+
         return {
             "locality": locality,
             "category": business_category,
-            "estimated_competitors": 12,
-            "market_saturation": "Medium",
-            "differentiation_opportunities": [
-                "Quality certification (FSSAI, organic)",
-                "Digital payment integration",
-                "Home delivery service",
-                "Value-added product variants",
-            ],
+            "estimated_competitors": estimated_competitors,
+            "market_saturation": market_saturation,
+            "households": loc_profile.households,
+            "differentiation_opportunities": diff_opps,
         }
 
     @staticmethod
@@ -277,13 +412,17 @@ class AgentTools:
     def tool_22_investment_timeline(
         capital: float,
         business_category: str = "general",
+        project_cost: Optional[float] = None,
     ) -> Dict[str, Any]:
-        plan = DeterministicFinancialEngine.generate_financial_plan(capital, business_category)
+        plan = DeterministicFinancialEngine.generate_financial_plan(
+            capital, business_category, project_cost=project_cost
+        )
+        cost = plan.project_cost
         return {
-            "phase_1_pre_launch": {"months": "0-1", "amount": capital * 0.4, "activities": ["Registration", "DPR preparation", "Bank application"]},
-            "phase_2_setup": {"months": "1-2", "amount": capital * 0.35, "activities": ["Equipment purchase", "Infrastructure setup", "Initial stock"]},
-            "phase_3_launch": {"months": "2-3", "amount": capital * 0.15, "activities": ["Marketing", "Staff hiring", "Operations begin"]},
-            "phase_4_stabilize": {"months": "3-6", "amount": capital * 0.10, "activities": ["Working capital management", "First EMI payment", "Performance review"]},
+            "phase_1_pre_launch": {"months": "0-1", "amount": round(cost * 0.40, 2), "activities": ["Registration", "DPR preparation", "Bank application"]},
+            "phase_2_setup": {"months": "1-2", "amount": round(cost * 0.35, 2), "activities": ["Equipment purchase", "Infrastructure setup", "Initial stock"]},
+            "phase_3_launch": {"months": "2-3", "amount": round(cost * 0.15, 2), "activities": ["Marketing", "Staff hiring", "Operations begin"]},
+            "phase_4_stabilize": {"months": "3-6", "amount": round(cost * 0.10, 2), "activities": ["Working capital management", "First EMI payment", "Performance review"]},
             "total_project_cost": plan.project_cost,
             "bank_loan": plan.loan_requirement,
             "moratorium_months": plan.moratorium_months,
@@ -296,10 +435,13 @@ class AgentTools:
         capital = request_dict.get("capital", 100000)
         locality = request_dict.get("locality", "Unknown")
         business_idea = request_dict.get("business_idea", "general")
+        project_cost = request_dict.get("project_cost")
 
-        plan = DeterministicFinancialEngine.generate_financial_plan(capital, business_idea)
+        plan = DeterministicFinancialEngine.generate_financial_plan(
+            capital, business_idea, project_cost=project_cost
+        )
         feasibility = FeasibilityEngine.calculate_feasibility(
-            capital, business_idea, locality, request_dict.get("state", ""), {}
+            capital, business_idea, locality, request_dict.get("state", ""), {}, project_cost=project_cost
         )
         schemes = SchemeEngine.match_schemes(plan.project_cost, business_idea)
         timing = TimeMachineEngine.analyze_timing(business_idea)

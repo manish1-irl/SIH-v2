@@ -28,17 +28,28 @@ class DeterministicFinancialEngine:
         return round(emi, 2)
 
     @staticmethod
-    def generate_financial_plan(capital: float, business_category: str = "general", annual_interest_rate: float = 8.5, tenure_months: int = 60, moratorium_months: int = 6) -> FinancialPlan:
-        project_cost = DeterministicFinancialEngine.calculate_project_cost(capital, business_category)
+    def generate_financial_plan(
+        capital: float,
+        business_category: str = "general",
+        annual_interest_rate: float = 8.5,
+        tenure_months: int = 60,
+        moratorium_months: int = 6,
+        project_cost: Optional[float] = None,
+    ) -> FinancialPlan:
+        if project_cost is not None and float(project_cost) > 0:
+            final_project_cost = round(float(project_cost), 2)
+        else:
+            final_project_cost = DeterministicFinancialEngine.calculate_project_cost(capital, business_category)
+
         margin_contribution = round(capital, 2)
-        loan_requirement = round(max(project_cost - margin_contribution, 0.0), 2)
-        working_capital = round(project_cost * 0.25, 2)
+        loan_requirement = round(max(final_project_cost - margin_contribution, 0.0), 2)
+        working_capital = round(final_project_cost * 0.25, 2)
         monthly_emi = DeterministicFinancialEngine.calculate_emi(loan_requirement, annual_interest_rate, tenure_months, moratorium_months)
         effective_tenure = max(tenure_months - moratorium_months, 1)
         total_repayment = round(monthly_emi * effective_tenure, 2)
 
-        base_monthly_revenue = round(project_cost * 0.22, 2)
-        base_monthly_opex = round(project_cost * 0.13, 2)
+        base_monthly_revenue = round(final_project_cost * 0.22, 2)
+        base_monthly_opex = round(final_project_cost * 0.13, 2)
         cashflows: List[Dict[str, Any]] = []
         cumulative_net = -margin_contribution
         break_even_month = 7
@@ -62,7 +73,7 @@ class DeterministicFinancialEngine:
             })
 
         return FinancialPlan(
-            project_cost=project_cost,
+            project_cost=final_project_cost,
             margin_contribution=margin_contribution,
             loan_requirement=loan_requirement,
             interest_rate=annual_interest_rate,
@@ -85,11 +96,16 @@ class DeterministicFinancialEngine:
         commercial_rate: float = 12.5,
         business_idea: Optional[str] = None,
         locality: Optional[str] = None,
+        project_cost: Optional[float] = None,
     ) -> ConcessionalLoanResponse:
         # 1. Total Project Cost (P) & Concessional Debt (D)
-        margin_ratio = max(margin_percent / 100.0, 0.01)
-        total_project_cost = round(capital / margin_ratio, 2)
-        concessional_debt = round(total_project_cost - capital, 2)
+        if project_cost is not None and float(project_cost) > 0:
+            total_project_cost = round(float(project_cost), 2)
+            concessional_debt = round(max(total_project_cost - capital, 0.0), 2)
+        else:
+            margin_ratio = max(margin_percent / 100.0, 0.01)
+            total_project_cost = round(capital / margin_ratio, 2)
+            concessional_debt = round(total_project_cost - capital, 2)
 
         # 2. Quarters calculation
         tenure_quarters = tenure_years * 4

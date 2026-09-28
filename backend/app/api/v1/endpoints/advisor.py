@@ -66,14 +66,16 @@ async def analyze_business(request: BusinessAdvisorRequest):
     financial_plan = DeterministicFinancialEngine.generate_financial_plan(
         capital=capital,
         business_category=biz_idea or "general",
+        project_cost=request.project_cost,
     )
 
     feasibility = FeasibilityEngine.calculate_feasibility(
-        capital=request.capital,
-        business_idea=request.business_idea or "general",
-        locality=request.locality,
-        state=request.state,
+        capital=capital,
+        business_idea=biz_idea or "general",
+        locality=locality,
+        state=state,
         demographics={},
+        project_cost=financial_plan.project_cost,
     )
 
     schemes = SchemeEngine.match_schemes(
@@ -197,6 +199,7 @@ async def generate_dpr(request: BusinessAdvisorRequest):
     financial_plan = DeterministicFinancialEngine.generate_financial_plan(
         capital=capital,
         business_category=biz_idea or "general",
+        project_cost=request.project_cost,
     )
     schemes = SchemeEngine.match_schemes(
         project_cost=financial_plan.project_cost,
@@ -210,6 +213,7 @@ async def generate_dpr(request: BusinessAdvisorRequest):
         locality=locality,
         state=state,
         demographics={},
+        project_cost=financial_plan.project_cost,
     )
     time_machine = TimeMachineEngine.analyze_timing(
         business_category=biz_idea or "general",
@@ -245,10 +249,15 @@ async def download_dpr_pdf_get(
     locality: str = "Alwar",
     state: str = "Rajasthan",
     applicant_name: str = "Entrepreneur",
+    project_cost: Optional[float] = None,
 ):
-    financial_plan = DeterministicFinancialEngine.generate_financial_plan(capital=capital, business_category=business_idea)
+    financial_plan = DeterministicFinancialEngine.generate_financial_plan(
+        capital=capital, business_category=business_idea, project_cost=project_cost
+    )
     schemes = SchemeEngine.match_schemes(project_cost=financial_plan.project_cost, business_category=business_idea)
-    feasibility = FeasibilityEngine.calculate_feasibility(capital=capital, business_idea=business_idea, locality=locality, state=state, demographics={})
+    feasibility = FeasibilityEngine.calculate_feasibility(
+        capital=capital, business_idea=business_idea, locality=locality, state=state, demographics={}, project_cost=financial_plan.project_cost
+    )
     time_machine = TimeMachineEngine.analyze_timing(business_category=business_idea)
     clusters = ClusterEngine.find_clusters(locality=locality, business_category=business_idea)
     evidence = EvidenceObject(

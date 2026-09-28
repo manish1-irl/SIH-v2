@@ -8,7 +8,8 @@ router = APIRouter()
 @router.post("")
 async def chat(request: ChatRequest):
     orchestrator = CrewOrchestrator()
-    response = await orchestrator.handle_chat(request.query, request.context)
+    lang = request.language or (request.context.get("language") if request.context else "en") or "en"
+    response = await orchestrator.handle_chat(request.query, request.context, language=lang)
     return response
 
 

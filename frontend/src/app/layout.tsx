@@ -39,11 +39,23 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen text-antigravity-charcoal font-sans antialiased selection:bg-antigravity-sage/30 relative">
-        {/* Clean Solid Background Canvas */}
-        <div className="fixed inset-0 pointer-events-none -z-10 bg-[#FAF7F2]" />
+        {/* Topographic Contour Map Background Canvas (Fixed Viewport Layer) */}
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 pointer-events-none z-0"
+          style={{
+            backgroundImage: "url('/topographic-bg.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center center",
+            backgroundRepeat: "no-repeat",
+            backgroundAttachment: "fixed",
+          }}
+        />
 
-        <PwaManager />
-        {children}
+        <div className="relative z-10 flex min-h-screen flex-col">
+          <PwaManager />
+          {children}
+        </div>
       </body>
     </html>
   );

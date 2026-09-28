@@ -26,9 +26,15 @@ import {
   Calculator,
   FileDown,
   Lock,
+  Loader2,
+  AlertTriangle,
+  User,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { ClusterNetworkResponse, ClusterNode } from "@/types";
+import { UserProfile } from "@/lib/supabase";
+import { getTranslation } from "@/lib/translations";
+import RequiredInfoGuard from "@/components/common/RequiredInfoGuard";
 
 interface ClusterNetworkFlowProps {
   onBackToHome: () => void;
@@ -37,6 +43,13 @@ interface ClusterNetworkFlowProps {
   onProceedToDpr?: () => void;
   initialLocality?: string;
   initialBusinessIdea?: string;
+  initialCapital?: number;
+  initialState?: string;
+  hasRequiredInfo?: boolean;
+  onUpdateParams?: (businessIdea: string, capital: number, locality?: string, state?: string) => void;
+  currentUser?: UserProfile | null;
+  onOpenProfile?: () => void;
+  language?: string;
 }
 
 const LOCALITY_PRESETS = [
@@ -53,10 +66,47 @@ export default function ClusterNetworkFlow({
   onProceedToDpr,
   initialLocality = "Bassi",
   initialBusinessIdea = "Dairy",
+  initialCapital = 0,
+  initialState = "India",
+  hasRequiredInfo,
+  onUpdateParams,
+  currentUser,
+  onOpenProfile,
+  language = "hi",
 }: ClusterNetworkFlowProps) {
+  const t = (key: string) => getTranslation(language, key);
   const [locality, setLocality] = useState(initialLocality);
   const [businessIdea, setBusinessIdea] = useState(initialBusinessIdea);
-  const [enterpriseName, setEnterpriseName] = useState("Ganga Dairy Parlour");
+  const [capital, setCapital] = useState(initialCapital);
+  const [stateName, setStateName] = useState(initialState);
+  const [enterpriseName, setEnterpriseName] = useState(initialBusinessIdea ? `${initialBusinessIdea} Hub` : "");
+
+  // Synchronize incoming props
+  useEffect(() => {
+    if (initialLocality !== undefined) setLocality(initialLocality);
+  }, [initialLocality]);
+
+  useEffect(() => {
+    if (initialBusinessIdea !== undefined) {
+      setBusinessIdea(initialBusinessIdea);
+      if (initialBusinessIdea) setEnterpriseName(`${initialBusinessIdea} Hub`);
+    }
+  }, [initialBusinessIdea]);
+
+  useEffect(() => {
+    if (initialCapital !== undefined) setCapital(initialCapital);
+  }, [initialCapital]);
+
+  useEffect(() => {
+    if (initialState !== undefined) setStateName(initialState);
+  }, [initialState]);
+
+  // Requirement: Cluster Network must only show info if user provided business idea and margin money
+  const isInfoProvided = Boolean(
+    (hasRequiredInfo !== undefined ? hasRequiredInfo : (businessIdea?.trim() && capital > 0)) &&
+    businessIdea?.trim() &&
+    capital > 0
+  );
 
   // Connected state: set of node IDs connected
   const [connectedNodeIds, setConnectedNodeIds] = useState<string[]>([]);
@@ -67,97 +117,31 @@ export default function ClusterNetworkFlow({
 
   // Server cluster response
   const [clusterData, setClusterData] = useState<ClusterNetworkResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchClusterNetwork = async () => {
     setIsLoading(true);
+    setErrorMsg(null);
     try {
       const res = await apiClient.getClusterNetwork({
         locality: locality.trim() || "Bassi",
         business_idea: businessIdea.trim() || "Dairy",
-        enterprise_name: enterpriseName.trim() || "Ganga Dairy Parlour",
+        enterprise_name: enterpriseName.trim() || `${locality || "Local"} Enterprise`,
       });
       setClusterData(res);
-    } catch (err) {
-      console.warn("Direct cluster network fetch notice:", err);
-      // Fallback matching mockup
-      setClusterData({
-        locality: locality || "Bassi",
-        business_idea: businessIdea || "Dairy",
-        hub: {
-          name: enterpriseName || "Ganga Dairy Parlour",
-          sector: "Retail Dairy & Sweet Shop • 10% Concessional Credit",
-          locality_node: `${locality || "Bassi"} Village Center (Core Node)`,
-          seeking: "Seeking 150L daily raw milk supply",
-          daily_processing_volume: "350 Liters",
-          max_peers: 4,
-        },
-        nodes: [
-          {
-            id: "node-upstream-1",
-            role: "UPSTREAM PRODUCER",
-            title: `${locality || "Bassi"} Dairy Farm Node #14`,
-            category: "Raw Milk Producer (Cow & Buffalo)",
-            distance_km: 2.8,
-            capacity_metric: "200L Daily Output",
-            rating: 4.9,
-            icon_type: "truck",
-            synergy_benefit: "Can supply steady 120L evening yield at ₹4/L wholesale discount.",
-            estimated_monthly_savings: 14400,
-          },
-          {
-            id: "node-wholesale-2",
-            role: "INPUT WHOLESALE",
-            title: "Regional Mandi Feed & Mineral Depot #06",
-            category: "Mandi Distributor (Mineral & Fodder)",
-            distance_km: 3.5,
-            capacity_metric: "Mandi Direct Stock",
-            rating: 5.0,
-            icon_type: "package",
-            synergy_benefit: "Joint purchase of 20+ bags unlocks flat 12% cash discount on feed sacks.",
-            estimated_monthly_savings: 6500,
-          },
-          {
-            id: "node-peer-3",
-            role: "PEER RETAILER",
-            title: `${locality || "Bassi"} Paneer & Dairy Production Unit #22`,
-            category: "Dairy & Paneer Production Unit",
-            distance_km: 4.1,
-            capacity_metric: "80L Daily Surplus",
-            rating: 4.8,
-            icon_type: "store",
-            synergy_benefit: "Looking to offload evening raw milk surplus at cost to avoid wastage.",
-            estimated_monthly_savings: 7200,
-          },
-          {
-            id: "node-infra-4",
-            role: "INFRASTRUCTURE SHARING",
-            title: `${locality || "Bassi"} Community BMC Chiller Hub #03`,
-            category: "Bulk Milk Chiller (1,000L Unit)",
-            distance_km: 5.2,
-            capacity_metric: "NABARD Cooperative",
-            rating: 4.9,
-            icon_type: "snowflake",
-            synergy_benefit: "Offers 200L excess refrigerated slot capacity at ₹1.5/L/day shared fee.",
-            estimated_monthly_savings: 9000,
-          },
-        ],
-        collective_perks: [
-          "₹4/Litre evening yield discount on direct village milk collection",
-          "12% cash discount on bulk cattle mineral feed sacks",
-          "Shared 200L refrigeration slot at ₹1.5/L/day preventing souring",
-          "Zero-waste surplus re-routing during off-peak sweet sales",
-        ],
-        unlocked_synergy_note:
-          "Connecting all 4 local peers unlocks up to ₹37,100/month in collective margin expansion and spoilage reduction.",
-      });
+    } catch (err: any) {
+      console.warn("Direct cluster network fetch error:", err);
+      setClusterData(null);
+      setErrorMsg(`Could not load local economic cluster network for ${businessIdea} in ${locality}. Please verify your connection and try again.`);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!isInfoProvided) return;
     fetchClusterNetwork();
-  }, [locality, businessIdea, enterpriseName]);
+  }, [isInfoProvided, locality, businessIdea, enterpriseName]);
 
   const toggleConnectNode = (nodeId: string) => {
     setConnectedNodeIds((prev) =>
@@ -167,11 +151,11 @@ export default function ClusterNetworkFlow({
 
   const nodes = clusterData?.nodes || [];
   const hub = clusterData?.hub || {
-    name: enterpriseName,
-    sector: "Retail Dairy & Sweet Shop • 10% Concessional Credit",
-    locality_node: `${locality} Village Center (Core Node)`,
-    seeking: "Seeking 150L daily raw milk supply",
-    daily_processing_volume: "350 Liters",
+    name: enterpriseName || `${locality} Enterprise`,
+    sector: `${businessIdea} Regional Cluster Node`,
+    locality_node: `${locality} Center (Core Node)`,
+    seeking: `Seeking local supply chain partners for ${businessIdea}`,
+    daily_processing_volume: "Active Unit",
     max_peers: 4,
   };
 
@@ -209,19 +193,47 @@ export default function ClusterNetworkFlow({
     }
   };
 
+  // Guard against missing business idea and capital: Show Required Information prompt
+  if (!isInfoProvided) {
+    return (
+      <RequiredInfoGuard
+        featureName={t("clusterNetwork")}
+        featureDescription="Local Business Synergies, FPO Linkages & Shared Infrastructure"
+        businessIdea={businessIdea}
+        capital={capital}
+        locality={locality}
+        stateName={stateName}
+        onBackToHome={onBackToHome}
+        currentUser={currentUser}
+        onOpenProfile={onOpenProfile}
+        language={language}
+        onSubmitInfo={(idea, cap, loc, st) => {
+          setBusinessIdea(idea);
+          setCapital(cap);
+          setEnterpriseName(`${idea} Hub`);
+          if (loc) setLocality(loc);
+          if (st) setStateName(st);
+          if (onUpdateParams) {
+            onUpdateParams(idea, cap, loc, st);
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans select-none text-antigravity-charcoal">
-      {/* Header & Breadcrumbs */}
+      {/* Header & Breadcrumbs (Unified max-w-7xl) */}
       <header className="border-b border-white/60 bg-white/85 backdrop-blur-md sticky top-0 z-40 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={onBackToHome}
-              className="p-2 rounded-xl bg-antigravity-navy/5 hover:bg-antigravity-navy/10 text-antigravity-navy transition-all flex items-center gap-1.5 text-xs font-semibold"
+              className="p-2 rounded-xl bg-antigravity-navy/5 hover:bg-antigravity-navy/10 text-antigravity-navy transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
               title="Back to Home"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Home</span>
+              <span className="hidden sm:inline">{t("home")}</span>
             </button>
             <div className="h-4 w-[1px] bg-antigravity-navy/20" />
             <div className="flex items-center gap-2">
@@ -230,7 +242,7 @@ export default function ClusterNetworkFlow({
               </div>
               <div>
                 <span className="font-serif font-bold text-sm text-antigravity-navy tracking-tight block leading-tight">
-                  Economic Cluster
+                  {t("clusterNetwork")}
                 </span>
                 <span className="text-[10px] text-antigravity-charcoal/60 block leading-tight">
                   Privacy-First Mutual Business Synergy Ring
@@ -239,27 +251,41 @@ export default function ClusterNetworkFlow({
             </div>
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions & User Profile */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsParamEditorOpen(!isParamEditorOpen)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
                 isParamEditorOpen
                   ? "bg-antigravity-navy text-white border-antigravity-navy shadow-sm"
                   : "bg-white text-antigravity-charcoal border-antigravity-navy/15 hover:border-antigravity-orange"
               }`}
             >
               <Sliders className="w-3.5 h-3.5" />
-              <span>{isParamEditorOpen ? "Close Cluster Filter" : "Change Locality"}</span>
+              <span>{isParamEditorOpen ? t("closeFilter") : t("changeLocality")}</span>
             </button>
 
             {onProceedToSchemes && (
               <button
                 onClick={onProceedToSchemes}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F5ECE1] text-[#8B2500] hover:bg-[#EBDDCF] text-xs font-semibold transition-all"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F5ECE1] text-[#8B2500] hover:bg-[#EBDDCF] text-xs font-semibold transition-all cursor-pointer"
               >
                 <Calculator className="w-3.5 h-3.5" />
-                <span>Scheme Calculator</span>
+                <span>{t("schemeCalculator")}</span>
+              </button>
+            )}
+
+            {currentUser && onOpenProfile && (
+              <button
+                onClick={onOpenProfile}
+                type="button"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 hover:bg-white backdrop-blur-md border border-white/80 text-xs font-semibold text-antigravity-navy shadow-xs transition-all cursor-pointer"
+                title={t("profile")}
+              >
+                <div className="w-5 h-5 rounded-full bg-antigravity-navy text-white flex items-center justify-center text-[10px] font-bold">
+                  {currentUser.full_name ? currentUser.full_name.charAt(0).toUpperCase() : <User className="w-3 h-3" />}
+                </div>
+                <span className="hidden sm:inline max-w-[120px] truncate">{currentUser.full_name}</span>
               </button>
             )}
           </div>
@@ -268,11 +294,11 @@ export default function ClusterNetworkFlow({
         {/* Dynamic Locality & Business Idea Drawer */}
         {isParamEditorOpen && (
           <div className="bg-white/90 backdrop-blur-xl border-t border-antigravity-navy/10 px-4 py-4 animate-in slide-in-from-top-2 duration-200">
-            <div className="max-w-6xl mx-auto space-y-3">
+            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-3">
               {/* Presets Row */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-antigravity-navy uppercase tracking-wider">
-                  Select Regional Cluster:
+                  {t("selectRegionalCluster")}
                 </span>
                 {LOCALITY_PRESETS.map((preset) => (
                   <button
@@ -304,7 +330,7 @@ export default function ClusterNetworkFlow({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-antigravity-navy/70">
-                    Locality / Block Name
+                    {t("locality")}
                   </label>
                   <input
                     type="text"
@@ -316,7 +342,7 @@ export default function ClusterNetworkFlow({
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-antigravity-navy/70">
-                    Business Idea / Sector
+                    {t("businessIdea")}
                   </label>
                   <input
                     type="text"
@@ -345,7 +371,7 @@ export default function ClusterNetworkFlow({
       </header>
 
       {/* Main Cluster Network Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8 flex flex-col justify-between">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 flex flex-col justify-between">
         {/* Title & Privacy Badge */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
@@ -354,7 +380,7 @@ export default function ClusterNetworkFlow({
               <span>Zero Personal Data Leakage • Verifiable Business Nodes</span>
             </div>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-antigravity-navy tracking-tight">
-              {locality} Local Business Cluster & Synergy Network
+              {locality} {t("clusterSynergyNetwork")}
             </h1>
           </div>
           <p className="font-sans text-xs sm:text-sm text-antigravity-charcoal/70 max-w-md sm:text-right leading-relaxed">
@@ -364,9 +390,39 @@ export default function ClusterNetworkFlow({
         </div>
 
         {/* ========================================================= */}
-        {/* NETWORK VISUALIZATION CANVAS (Matching Mockup) */}
+        {/* NETWORK VISUALIZATION CANVAS */}
         {/* ========================================================= */}
-        <div className="relative w-full py-4">
+        {isLoading ? (
+          <div className="rounded-3xl bg-white/85 backdrop-blur-md p-12 border border-antigravity-navy/10 flex flex-col items-center justify-center text-center shadow-subtle min-h-[360px]">
+            <Loader2 className="w-9 h-9 text-antigravity-navy animate-spin mb-3" />
+            <p className="font-serif text-base font-bold text-antigravity-navy">
+              {t("mappingClusterNodes")}
+            </p>
+            <p className="font-sans text-xs text-antigravity-charcoal/60 mt-1">
+              Analyzing APMC mandis, agricultural collectives, and regional MSME supply chains
+            </p>
+          </div>
+        ) : errorMsg || !clusterData ? (
+          <div className="rounded-3xl bg-white/95 backdrop-blur-md p-8 sm:p-12 border border-amber-200 flex flex-col items-center justify-center text-center shadow-subtle min-h-[320px]">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 mb-3">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="font-serif text-lg font-bold text-antigravity-navy mb-1">
+              {t("clusterUnavailable")}
+            </h3>
+            <p className="font-sans text-xs sm:text-sm text-neutral-600 max-w-md mb-5 leading-relaxed">
+              {errorMsg || `Could not retrieve verified supply chain nodes for ${businessIdea} in ${locality}. Please verify your network connection.`}
+            </p>
+            <button
+              onClick={fetchClusterNetwork}
+              className="px-5 py-2.5 rounded-xl bg-antigravity-navy text-white text-xs font-semibold hover:bg-antigravity-orange transition-all shadow-subtle cursor-pointer flex items-center gap-2"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>{t("retryClusterMapping")}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="relative w-full py-4">
           {/* Background SVG Animated Network Connecting Lines */}
           <div className="hidden lg:block absolute inset-0 pointer-events-none z-0">
             <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -822,6 +878,7 @@ export default function ClusterNetworkFlow({
             </div>
           </div>
         </div>
+      )}
 
         {/* ========================================================= */}
         {/* POOLED SYNERGY SUMMARY BAR (Activates as nodes are linked) */}
@@ -846,7 +903,7 @@ export default function ClusterNetworkFlow({
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
             <div className="bg-[#FAF7F2] border border-[#DFC9B2] px-4 py-2.5 rounded-2xl text-center min-w-[170px]">
               <span className="text-[10px] uppercase font-bold text-antigravity-charcoal/60 block">
-                Est. Monthly Synergy
+                {t("estMonthlySynergy")}
               </span>
               <span className="font-serif text-lg font-bold text-[#8B2500]">
                 {totalMonthlySavings > 0
@@ -857,10 +914,10 @@ export default function ClusterNetworkFlow({
 
             <button
               onClick={() => setShowPactModal(true)}
-              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-antigravity-navy hover:bg-[#081E33] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-antigravity-navy hover:bg-[#081E33] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
             >
               <Users className="w-4 h-4" />
-              <span>Review Collective Pact</span>
+              <span>{t("reviewCollectivePact")}</span>
             </button>
           </div>
         </div>
@@ -876,7 +933,7 @@ export default function ClusterNetworkFlow({
                   </div>
                   <div>
                     <h3 className="font-serif text-base font-bold text-antigravity-navy">
-                      {locality} Cluster Collective Pact
+                      {locality} {t("clusterCollectivePact")}
                     </h3>
                     <span className="text-[10px] text-antigravity-charcoal/60">
                       Standardized MSME/NABARD Cluster Framework
@@ -902,7 +959,7 @@ export default function ClusterNetworkFlow({
                 </div>
 
                 <h4 className="font-bold text-antigravity-navy uppercase text-[11px] tracking-wider pt-1">
-                  Active Collective Perks:
+                  {t("activeCollectivePerks")}:
                 </h4>
                 <ul className="space-y-2">
                   {clusterData?.collective_perks.map((perk, idx) => (
@@ -924,7 +981,7 @@ export default function ClusterNetworkFlow({
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <h4 className="font-serif font-bold text-sm text-emerald-900">
-                    Cluster Alliance Active & Verified!
+                    {t("allianceVerified")}
                   </h4>
                   <p className="text-xs text-emerald-800/80">
                     Supply chain synergies and 10% concessional credit parameters are registered for {locality}.
@@ -936,7 +993,7 @@ export default function ClusterNetworkFlow({
                     }}
                     className="mt-2 px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm cursor-pointer"
                   >
-                    Done
+                    {t("close")}
                   </button>
                 </div>
               ) : (
@@ -945,13 +1002,13 @@ export default function ClusterNetworkFlow({
                     onClick={() => setShowPactModal(false)}
                     className="px-4 py-2 rounded-xl bg-antigravity-navy/5 text-antigravity-charcoal text-xs font-semibold hover:bg-antigravity-navy/10 cursor-pointer"
                   >
-                    Close
+                    {t("close")}
                   </button>
                   <button
                     onClick={() => setAllianceConfirmed(true)}
                     className="px-5 py-2 rounded-xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold shadow-md cursor-pointer"
                   >
-                    Confirm Alliance
+                    {t("confirmAlliance")}
                   </button>
                 </div>
               )}
@@ -963,7 +1020,7 @@ export default function ClusterNetworkFlow({
         <div className="bg-white rounded-3xl p-6 border border-antigravity-navy/10 shadow-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h4 className="font-serif text-base font-bold text-antigravity-navy mb-0.5">
-              Explore Next Strategic Advisor Steps
+              {t("nextStrategicSteps")}
             </h4>
             <p className="font-sans text-xs text-antigravity-charcoal/70">
               Check concessional scheme subsidies or review the complete 5-section Feasibility Matrix.
@@ -974,10 +1031,10 @@ export default function ClusterNetworkFlow({
             {onProceedToSchemes && (
               <button
                 onClick={onProceedToSchemes}
-                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-antigravity-navy hover:bg-[#081E33] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-antigravity-navy hover:bg-[#081E33] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Calculator className="w-3.5 h-3.5" />
-                <span>Scheme Calculator</span>
+                <span>{t("schemeCalculator")}</span>
               </button>
             )}
 
@@ -987,7 +1044,7 @@ export default function ClusterNetworkFlow({
                 className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Compass className="w-3.5 h-3.5" />
-                <span>Feasibility Matrix</span>
+                <span>{t("feasibility")}</span>
               </button>
             )}
 
@@ -997,7 +1054,7 @@ export default function ClusterNetworkFlow({
                 className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <FileDown className="w-3.5 h-3.5" />
-                <span>Generate DPR</span>
+                <span>{t("generateDpr")}</span>
               </button>
             )}
           </div>

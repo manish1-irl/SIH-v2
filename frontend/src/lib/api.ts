@@ -25,19 +25,33 @@ const API_BASE =
     ? "http://localhost:8000"
     : "https://sih-v2-2yz4.onrender.com");
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 12000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: options.signal || controller.signal,
+    });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 export const apiClient = {
   async getVoiceStatus() {
-    const res = await fetch(`${API_BASE}/api/v1/voice/status`);
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/voice/status`, {}, 6000);
     return res.json();
   },
 
   async getLanguages() {
-    const res = await fetch(`${API_BASE}/api/v1/voice/languages`);
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/voice/languages`, {}, 6000);
     return res.json();
   },
 
   async voiceChat(audioBase64: string, language: string, userId: string = "web-user") {
-    const res = await fetch(`${API_BASE}/api/v1/voice/voice-chat`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/voice/voice-chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -45,13 +59,13 @@ export const apiClient = {
         audio_base64: audioBase64,
         language,
       }),
-    });
+    }, 15000);
     if (!res.ok) throw new Error(`Voice chat error ${res.status}`);
     return res.json();
   },
 
   async textChat(message: string, language: string, userId: string = "web-user") {
-    const res = await fetch(`${API_BASE}/api/v1/voice/voice-chat`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/voice/voice-chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -59,39 +73,39 @@ export const apiClient = {
         message,
         language,
       }),
-    });
+    }, 12000);
     if (!res.ok) throw new Error(`Chat error ${res.status}`);
     return res.json();
   },
 
   async textToSpeech(text: string, language: string) {
-    const res = await fetch(`${API_BASE}/api/v1/voice/speak`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/voice/speak`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, language }),
-    });
+    }, 8000);
     if (!res.ok) return null;
     const data = await res.json();
     return data.audio_base64 || null;
   },
 
   async analyzeBusinessVoice(message: string, language: string) {
-    const res = await fetch(`${API_BASE}/api/v1/voice/analyze-voice`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/voice/analyze-voice`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, language }),
-    });
+    }, 12000);
     if (!res.ok) throw new Error(`Analysis error ${res.status}`);
     return res.json();
   },
 
   async analyzeBusiness(data: BusinessAdvisorRequest): Promise<FeasibilityReportResponse> {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/advisor/analyze`, {
+      const res = await fetchWithTimeout(`${API_BASE}/api/v1/advisor/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      });
+      }, 15000);
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const result: FeasibilityReportResponse = await res.json();
       try {
@@ -106,37 +120,37 @@ export const apiClient = {
   },
 
   async chat(query: string) {
-    const res = await fetch(`${API_BASE}/api/v1/chat`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query }),
-    });
+    }, 12000);
     if (!res.ok) throw new Error(`Chat error ${res.status}`);
     return res.json();
   },
 
   async calculateConcessionalLoan(data: ConcessionalLoanRequest): Promise<ConcessionalLoanResponse> {
-    const res = await fetch(`${API_BASE}/api/v1/advisor/concessional-calculator`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/advisor/concessional-calculator`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    });
+    }, 10000);
     if (!res.ok) throw new Error(`Concessional calculator error ${res.status}`);
     return res.json();
   },
 
   async getClusterNetwork(data: ClusterNetworkRequest): Promise<ClusterNetworkResponse> {
-    const res = await fetch(`${API_BASE}/api/v1/clusters/network`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/clusters/network`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    });
+    }, 10000);
     if (!res.ok) throw new Error(`Cluster network error ${res.status}`);
     return res.json();
   },
 
   async reverseFeasibility(capital: number, location: string, state: string = "Rajasthan"): Promise<ReverseFeasibilityRecommendation[]> {
-    const res = await fetch(`${API_BASE}/api/v1/advisor/reverse-feasibility`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/v1/advisor/reverse-feasibility`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -145,7 +159,7 @@ export const apiClient = {
         state,
         business_idea: "General",
       }),
-    });
+    }, 10000);
     if (!res.ok) throw new Error(`Reverse feasibility error ${res.status}`);
     return res.json();
   },

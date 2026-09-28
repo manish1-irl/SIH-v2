@@ -179,15 +179,17 @@ class TestSchemeEngine:
         assert schemes_special[0].subsidy_percentage >= schemes_general[0].subsidy_percentage
 
     def test_match_schemes_high_cost_no_mudra(self):
-        schemes = SchemeEngine.match_schemes(1000000, "manufacturing")
+        schemes = SchemeEngine.match_schemes(25000000, "manufacturing")
         mudra = next((s for s in schemes if "MUDRA" in s.scheme_name), None)
         assert mudra is None
 
     def test_official_schemes_data(self):
-        assert len(OFFICIAL_SCHEMES) == 2
+        assert len(OFFICIAL_SCHEMES) >= 12
         ids = [s["id"] for s in OFFICIAL_SCHEMES]
         assert "pmegp" in ids
         assert "pm_mudra_kishore" in ids
+        assert "pmfme" in ids
+        assert "aif" in ids
 
 
 class TestTimeMachineEngine:

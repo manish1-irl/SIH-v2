@@ -18,9 +18,13 @@ import {
   CheckCircle2,
   FileDown,
   Compass,
+  User,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { ConcessionalLoanResponse } from "@/types";
+import { UserProfile } from "@/lib/supabase";
+import { getTranslation } from "@/lib/translations";
+import RequiredInfoGuard from "@/components/common/RequiredInfoGuard";
 
 interface SchemeCalculatorFlowProps {
   onBackToHome: () => void;
@@ -30,29 +34,68 @@ interface SchemeCalculatorFlowProps {
   initialBusinessIdea?: string;
   initialLocality?: string;
   initialState?: string;
+  hasRequiredInfo?: boolean;
+  onUpdateParams?: (businessIdea: string, capital: number, locality?: string, state?: string) => void;
+  currentUser?: UserProfile | null;
+  onOpenProfile?: () => void;
+  language?: string;
 }
 
 export default function SchemeCalculatorFlow({
   onBackToHome,
   onProceedToFeasibility,
   onProceedToDpr,
-  initialCapital = 100000,
-  initialBusinessIdea = "Commercial Mini Dairy & Chilling Unit",
-  initialLocality = "Bassi",
-  initialState = "Rajasthan",
+  initialCapital = 0,
+  initialBusinessIdea = "",
+  initialLocality = "Local Area",
+  initialState = "India",
+  hasRequiredInfo,
+  onUpdateParams,
+  currentUser,
+  onOpenProfile,
+  language = "hi",
 }: SchemeCalculatorFlowProps) {
+  const t = (key: string) => getTranslation(language, key);
   // Input parameters
   const [capital, setCapital] = useState(initialCapital);
+  const [businessIdea, setBusinessIdea] = useState(initialBusinessIdea);
+  const [locality, setLocality] = useState(initialLocality);
+  const [stateName, setStateName] = useState(initialState);
   const [marginPercent, setMarginPercent] = useState(10.0);
   const [annualInterestRate, setAnnualInterestRate] = useState(8.0);
   const [tenureYears, setTenureYears] = useState(7);
   const [moratoriumMonths, setMoratoriumMonths] = useState(6);
   const [commercialRate, setCommercialRate] = useState(12.5);
 
+  // Synchronize incoming props
+  useEffect(() => {
+    if (initialCapital !== undefined) setCapital(initialCapital);
+  }, [initialCapital]);
+
+  useEffect(() => {
+    if (initialBusinessIdea !== undefined) setBusinessIdea(initialBusinessIdea);
+  }, [initialBusinessIdea]);
+
+  useEffect(() => {
+    if (initialLocality !== undefined) setLocality(initialLocality);
+  }, [initialLocality]);
+
+  useEffect(() => {
+    if (initialState !== undefined) setStateName(initialState);
+  }, [initialState]);
+
+  // Requirement: Scheme Calculator must only show info if user provided business idea and margin money
+  const isInfoProvided = Boolean(
+    (hasRequiredInfo !== undefined ? hasRequiredInfo : (businessIdea?.trim() && capital > 0)) &&
+    businessIdea?.trim() &&
+    capital > 0
+  );
+
   // UI States
   const [activeChartTab, setActiveChartTab] = useState<"curve" | "split">("curve");
   const [hoveredQuarterIndex, setHoveredQuarterIndex] = useState<number | null>(9); // default hovered to Y3-Q2 for initial view
   const [isLoading, setIsLoading] = useState(true);
+  const [calcNotice, setCalcNotice] = useState<string | null>(null);
 
   // Server data
   const [data, setData] = useState<ConcessionalLoanResponse | null>(null);
@@ -69,8 +112,10 @@ export default function SchemeCalculatorFlow({
         commercial_rate: Number(commercialRate) || 12.5,
       });
       setData(res);
+      setCalcNotice(null);
     } catch (err) {
       console.warn("Server loan calculation error, computing fallback:", err);
+      setCalcNotice("Live backend calculation unavailable. Displaying local deterministic loan calculation based on your parameters.");
       const cap = Number(capital) || 100000;
       const mRatio = (Number(marginPercent) || 10) / 100;
       const pCost = cap / mRatio;
@@ -164,26 +209,21 @@ export default function SchemeCalculatorFlow({
   };
 
   useEffect(() => {
-    if (initialCapital && initialCapital > 0) {
-      setCapital(initialCapital);
-    }
-  }, [initialCapital]);
-
-  useEffect(() => {
+    if (!isInfoProvided) return;
     fetchLoanCalculation();
-  }, [capital, marginPercent, annualInterestRate, tenureYears, moratoriumMonths, commercialRate]);
+  }, [isInfoProvided, capital, marginPercent, annualInterestRate, tenureYears, moratoriumMonths, commercialRate]);
 
   // Safe accessor shortcuts
-  const pCost = data?.total_project_cost ?? 1000000;
-  const pMargin = data?.promoter_margin ?? 100000;
-  const cDebt = data?.concessional_debt ?? 900000;
-  const graceQtr = data?.grace_quarterly_installment ?? 18000;
-  const activeEqi = data?.active_eqi ?? 44729;
-  const intSavings = data?.total_interest_savings ?? 164631;
-  const savingsPct = data?.savings_percent ?? 36;
-  const totPrincipal = data?.total_principal_repaid ?? 900000;
-  const totInterest = data?.total_concessional_interest ?? 298965;
-  const totOutflow = data?.total_outflow ?? 1198965;
+  const pMargin = data?.promoter_margin ?? (Number(capital) || 100000);
+  const pCost = data?.total_project_cost ?? (pMargin / ((Number(marginPercent) || 10) / 100));
+  const cDebt = data?.concessional_debt ?? Math.max(pCost - pMargin, 0);
+  const graceQtr = data?.grace_quarterly_installment ?? (cDebt * ((Number(annualInterestRate) || 8) / 100 / 4));
+  const activeEqi = data?.active_eqi ?? 0;
+  const intSavings = data?.total_interest_savings ?? 0;
+  const savingsPct = data?.savings_percent ?? 0;
+  const totPrincipal = data?.total_principal_repaid ?? cDebt;
+  const totInterest = data?.total_concessional_interest ?? 0;
+  const totOutflow = data?.total_outflow ?? cDebt;
   const schedule = data?.schedule ?? [];
 
   // Currently selected quarter in chart (default to Y3-Q2)
@@ -237,11 +277,38 @@ export default function SchemeCalculatorFlow({
     return d;
   }, [points]);
 
+  // Guard against missing business idea and capital: Show Required Information prompt
+  if (!isInfoProvided) {
+    return (
+      <RequiredInfoGuard
+        featureName={t("schemeCalculator")}
+        featureDescription="Concessional Loan, Margin Subsidies & Amortization"
+        businessIdea={businessIdea}
+        capital={capital}
+        locality={locality}
+        stateName={stateName}
+        onBackToHome={onBackToHome}
+        currentUser={currentUser}
+        onOpenProfile={onOpenProfile}
+        language={language}
+        onSubmitInfo={(idea, cap, loc, st) => {
+          setBusinessIdea(idea);
+          setCapital(cap);
+          if (loc) setLocality(loc);
+          if (st) setStateName(st);
+          if (onUpdateParams) {
+            onUpdateParams(idea, cap, loc, st);
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans select-none text-antigravity-charcoal">
-      {/* Top Header & Breadcrumbs */}
+      {/* Top Header & Breadcrumbs (Unified max-w-7xl) */}
       <header className="border-b border-white/60 bg-white/85 backdrop-blur-md sticky top-0 z-40 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={onBackToHome}
@@ -249,7 +316,7 @@ export default function SchemeCalculatorFlow({
               title="Back to Home"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Home</span>
+              <span className="hidden sm:inline">{t("home")}</span>
             </button>
             <div className="h-4 w-[1px] bg-antigravity-navy/20" />
             <div className="flex items-center gap-2">
@@ -258,7 +325,7 @@ export default function SchemeCalculatorFlow({
               </div>
               <div>
                 <span className="font-serif font-bold text-sm text-antigravity-navy tracking-tight block leading-tight">
-                  Scheme Calculator
+                  {t("schemeCalculator")}
                 </span>
                 <span className="text-[10px] text-antigravity-charcoal/60 block leading-tight">
                   Concessional Financial Engine & Amortization
@@ -267,11 +334,11 @@ export default function SchemeCalculatorFlow({
             </div>
           </div>
 
-          {/* Active Parameter Synchronized Badge */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-antigravity-navy/5 px-3 py-1.5 rounded-xl border border-antigravity-navy/10 text-xs font-semibold text-antigravity-navy">
+          {/* Active Parameter Synchronized Badge & User Profile */}
+          <div className="flex items-center gap-2.5">
+            <div className="hidden sm:flex items-center gap-2 bg-antigravity-navy/5 px-3 py-1.5 rounded-xl border border-antigravity-navy/10 text-xs font-semibold text-antigravity-navy">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="truncate max-w-[150px]">{initialBusinessIdea}</span>
+              <span className="truncate max-w-[160px]">{businessIdea || initialBusinessIdea}</span>
               <span className="text-antigravity-navy/40">•</span>
               <span className="text-antigravity-orange font-bold">Margin: ₹{Number(capital).toLocaleString("en-IN")}</span>
             </div>
@@ -282,15 +349,46 @@ export default function SchemeCalculatorFlow({
                 className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-antigravity-sage/15 text-antigravity-navy hover:bg-antigravity-sage/25 text-xs font-semibold transition-all cursor-pointer"
               >
                 <Compass className="w-3.5 h-3.5 text-antigravity-sage" />
-                <span>Feasibility Matrix</span>
+                <span>{t("feasibility")}</span>
+              </button>
+            )}
+
+            {currentUser && onOpenProfile && (
+              <button
+                onClick={onOpenProfile}
+                type="button"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 hover:bg-white backdrop-blur-md border border-white/80 text-xs font-semibold text-antigravity-navy shadow-xs transition-all cursor-pointer"
+                title={t("profile")}
+              >
+                <div className="w-5 h-5 rounded-full bg-antigravity-navy text-white flex items-center justify-center text-[10px] font-bold">
+                  {currentUser.full_name ? currentUser.full_name.charAt(0).toUpperCase() : <User className="w-3 h-3" />}
+                </div>
+                <span className="hidden sm:inline max-w-[120px] truncate">{currentUser.full_name}</span>
               </button>
             )}
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-10">
+      {/* Main Content Area (Unified max-w-7xl) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Optional Local Calc Notice */}
+        {calcNotice && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex items-center justify-between text-xs font-medium animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{calcNotice}</span>
+            </div>
+            <button
+              onClick={() => setCalcNotice(null)}
+              className="text-amber-600 hover:text-amber-950 font-bold px-2 py-1 text-xs cursor-pointer"
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* ========================================================= */}
         {/* PART 1: Financial Structuring & Scheme Auto-Router */}
         {/* ========================================================= */}
@@ -300,14 +398,14 @@ export default function SchemeCalculatorFlow({
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5ECE1] border border-[#DFC9B2] text-[#8B2500] text-[10px] font-bold uppercase tracking-wider mb-2">
                 <Calculator className="w-3 h-3 text-[#8B2500]" />
-                <span>Concessional Financial Engine</span>
+                <span>{t("concessionalFinancialEngine")}</span>
               </div>
               <h1 className="font-serif text-2xl sm:text-3xl font-bold text-antigravity-navy tracking-tight">
-                Financial Structuring & Scheme Auto-Router
+                {t("financialStructuringHeader")}
               </h1>
             </div>
             <p className="font-sans text-xs sm:text-sm text-antigravity-charcoal/70 max-w-md md:text-right leading-relaxed">
-              Live deterministic mathematical derivation of 90% concessional loan with statutory grace
+              Live deterministic mathematical derivation of {(100 - marginPercent).toFixed(0)}% concessional loan with statutory grace
               period (moratorium) alignment.
             </p>
           </div>
@@ -318,7 +416,7 @@ export default function SchemeCalculatorFlow({
             <div className="bg-white rounded-3xl p-6 border border-antigravity-navy/10 shadow-subtle flex flex-col justify-between relative overflow-hidden group hover:border-[#8B2500]/40 transition-all">
               <div className="flex items-center justify-between mb-4">
                 <span className="font-sans text-xs font-bold text-antigravity-navy/70 uppercase tracking-wider">
-                  Promoter Margin (10%)
+                  {t("promoterMargin")} ({marginPercent}%)
                 </span>
                 <div className="w-8 h-8 rounded-full bg-[#F5ECE1] flex items-center justify-center text-[#8B2500]">
                   <Coins className="w-4 h-4" />
@@ -330,7 +428,7 @@ export default function SchemeCalculatorFlow({
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-antigravity-charcoal/75">
                   <span className="w-2 h-2 rounded-full bg-[#D96B27]" />
-                  <span>10% Required Borrower Equity</span>
+                  <span>{marginPercent}% Required Borrower Equity</span>
                 </div>
               </div>
             </div>
@@ -340,7 +438,7 @@ export default function SchemeCalculatorFlow({
               <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/5 rounded-full blur-2xl" />
               <div className="flex items-center justify-between mb-4">
                 <span className="font-sans text-xs font-bold text-white/80 uppercase tracking-wider">
-                  Total Project Cost (P)
+                  {t("totalProjectCost")}
                 </span>
                 <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-white">
                   <TrendingUp className="w-4 h-4" />
@@ -348,10 +446,10 @@ export default function SchemeCalculatorFlow({
               </div>
               <div>
                 <div className="font-serif text-3xl sm:text-4xl font-bold text-white tracking-tight mb-2">
-                  ₹{pCost.toLocaleString("en-IN")}
+                  ₹{Math.round(pCost).toLocaleString("en-IN")}
                 </div>
                 <div className="font-mono text-[11px] text-white/80 bg-white/15 px-3 py-1.5 rounded-xl inline-block">
-                  Formula: P = Margin / 10% (₹{(pMargin / 100000).toFixed(2)} Lakh ÷ 0.10)
+                  Formula: P = Margin / {marginPercent}% (₹{(pMargin / 100000).toFixed(2)} Lakh ÷ {(marginPercent / 100).toFixed(2)})
                 </div>
               </div>
             </div>
@@ -360,7 +458,7 @@ export default function SchemeCalculatorFlow({
             <div className="bg-white rounded-3xl p-6 border border-antigravity-navy/10 shadow-subtle flex flex-col justify-between relative overflow-hidden group hover:border-[#87A96B]/50 transition-all">
               <div className="flex items-center justify-between mb-4">
                 <span className="font-sans text-xs font-bold text-antigravity-navy/70 uppercase tracking-wider">
-                  Concessional Debt (90%)
+                  {t("concessionalDebt")} ({(100 - marginPercent).toFixed(0)}%)
                 </span>
                 <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700">
                   <Landmark className="w-4 h-4" />
@@ -410,7 +508,7 @@ export default function SchemeCalculatorFlow({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-[#FAF8F5] rounded-2xl p-3.5 border border-antigravity-navy/5">
                   <span className="font-sans text-[10px] text-antigravity-charcoal/60 block mb-1 font-semibold uppercase">
-                    Repayment Tenure
+                    {t("repaymentTenure")}
                   </span>
                   <span className="font-serif text-base font-bold text-antigravity-navy block">
                     {tenureYears} Years ({tenureYears * 4} Qtrs)
@@ -419,7 +517,7 @@ export default function SchemeCalculatorFlow({
 
                 <div className="bg-[#FAF8F5] rounded-2xl p-3.5 border border-antigravity-navy/5">
                   <span className="font-sans text-[10px] text-antigravity-charcoal/60 block mb-1 font-semibold uppercase">
-                    Grace Period (Moratorium)
+                    {t("gracePeriodMoratorium")}
                   </span>
                   <span className="font-serif text-base font-bold text-[#8B2500] block">
                     {moratoriumMonths} Months ({Math.round(moratoriumMonths / 3)} Qtrs)
@@ -428,7 +526,7 @@ export default function SchemeCalculatorFlow({
 
                 <div className="bg-[#FAF8F5] rounded-2xl p-3.5 border border-antigravity-navy/5">
                   <span className="font-sans text-[10px] text-antigravity-charcoal/60 block mb-1 font-semibold uppercase">
-                    Credit Guarantee
+                    {t("creditGuarantee")}
                   </span>
                   <span className="font-serif text-base font-bold text-antigravity-navy block">
                     100% CGFMU/CGTMSE
@@ -441,7 +539,7 @@ export default function SchemeCalculatorFlow({
             <div className="lg:col-span-5 bg-[#FAF7F2] rounded-3xl p-6 sm:p-7 border border-[#DFC9B2]/60 shadow-subtle flex flex-col justify-between space-y-4">
               <div className="flex items-center justify-between">
                 <span className="font-sans text-xs font-bold text-antigravity-navy uppercase tracking-wider">
-                  Quarterly Payment Phasing
+                  {t("quarterlyPaymentPhasing")}
                 </span>
                 <Clock className="w-4 h-4 text-[#8B2500]" />
               </div>
@@ -450,7 +548,7 @@ export default function SchemeCalculatorFlow({
               <div className="bg-white rounded-2xl p-4 border border-[#DFC9B2]/50 shadow-sm flex items-center justify-between">
                 <div>
                   <span className="font-sans text-[10px] font-bold text-antigravity-charcoal/80 uppercase tracking-wider block">
-                    First {moratoriumMonths} Months (Moratorium)
+                    {t("gracePeriodMoratorium")} ({moratoriumMonths} M)
                   </span>
                   <span className="text-[11px] text-antigravity-charcoal/60 block">
                     Simple Interest Servicing Only
@@ -468,7 +566,7 @@ export default function SchemeCalculatorFlow({
               <div className="bg-[#8B2500] text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
                 <div>
                   <span className="font-sans text-[10px] font-bold text-white/90 uppercase tracking-wider block">
-                    Active EQI ({data ? data.tenure_quarters - data.moratorium_quarters : 26} Quarters)
+                    {t("activeEqi")} ({data ? data.tenure_quarters - data.moratorium_quarters : 26} Qtrs)
                   </span>
                   <span className="text-[11px] text-white/75 block">Equated Principal + Interest</span>
                 </div>
@@ -483,7 +581,7 @@ export default function SchemeCalculatorFlow({
               {/* Commercial Comparison Bottom Row */}
               <div className="flex items-center justify-between pt-2 border-t border-[#DFC9B2]/50 text-xs">
                 <span className="text-antigravity-charcoal/70 font-medium">
-                  Total Interest Savings vs Commercial ({commercialRate}%):
+                  {t("totalInterestSavings")} ({commercialRate}%):
                 </span>
                 <span className="font-serif font-bold text-[#8B2500]">
                   ₹{Math.round(intSavings).toLocaleString("en-IN")} ({Math.round(savingsPct)}%)
@@ -502,10 +600,10 @@ export default function SchemeCalculatorFlow({
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase tracking-wider mb-2">
                 <TrendingUp className="w-3 h-3 text-emerald-700" />
-                <span>Quarterly Amortization Timeline</span>
+                <span>{t("quarterlyTimeline")}</span>
               </div>
               <h2 className="font-serif text-2xl sm:text-3xl font-bold text-antigravity-navy tracking-tight">
-                Quarterly Repayment Schedule & Grace Phasing
+                {t("quarterlyRepaymentSchedule")}
               </h2>
             </div>
 
@@ -519,7 +617,7 @@ export default function SchemeCalculatorFlow({
                     : "text-antigravity-charcoal/70 hover:text-antigravity-charcoal"
                 }`}
               >
-                Balance Curve
+                {t("balanceCurve")}
               </button>
               <button
                 onClick={() => setActiveChartTab("split")}
@@ -529,7 +627,7 @@ export default function SchemeCalculatorFlow({
                     : "text-antigravity-charcoal/70 hover:text-antigravity-charcoal"
                 }`}
               >
-                Principal vs Interest
+                {t("principalVsInterest")}
               </button>
             </div>
           </div>
@@ -542,8 +640,7 @@ export default function SchemeCalculatorFlow({
               </div>
               <div>
                 <h3 className="font-sans text-sm font-bold text-antigravity-navy mb-0.5">
-                  Statutory Grace Period: First {moratoriumMonths} Months (
-                  {Math.round(moratoriumMonths / 3)} Quarters)
+                  {t("statutoryGraceNotice")}: {moratoriumMonths} Months ({Math.round(moratoriumMonths / 3)} Qtrs)
                 </h3>
                 <p className="font-sans text-xs text-antigravity-charcoal/75 leading-relaxed">
                   During initial enterprise establishment, zero principal is deducted. Only ₹
@@ -557,7 +654,7 @@ export default function SchemeCalculatorFlow({
             <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
               <div className="px-3 py-1.5 rounded-xl bg-white border border-[#EADECB] text-center shadow-2xs">
                 <span className="text-[9px] font-bold text-antigravity-charcoal/60 uppercase tracking-wider block">
-                  Grace Installment
+                  {t("graceInstallment")}
                 </span>
                 <span className="font-serif text-xs font-bold text-antigravity-navy">
                   ₹{Math.round(graceQtr).toLocaleString("en-IN")}/Qtr
@@ -565,7 +662,7 @@ export default function SchemeCalculatorFlow({
               </div>
               <div className="px-3 py-1.5 rounded-xl bg-[#8B2500] text-white text-center shadow-sm">
                 <span className="text-[9px] font-bold text-white/80 uppercase tracking-wider block">
-                  Active EQI
+                  {t("activeEqi")}
                 </span>
                 <span className="font-serif text-xs font-bold text-white">
                   ₹{Math.round(activeEqi).toLocaleString("en-IN")}/Qtr
@@ -835,19 +932,19 @@ export default function SchemeCalculatorFlow({
               <div className="flex flex-wrap items-center gap-5 font-semibold text-antigravity-charcoal/85">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-sm bg-emerald-900" />
-                  <span>Principal Repaid: ₹{Math.round(totPrincipal).toLocaleString("en-IN")}</span>
+                  <span>{t("principalRepaid")}: ₹{Math.round(totPrincipal).toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-sm bg-[#D96B27]" />
                   <span>
-                    Total Concessional Interest: ₹{Math.round(totInterest).toLocaleString("en-IN")}
+                    {t("totalConcessionalInterest")}: ₹{Math.round(totInterest).toLocaleString("en-IN")}
                   </span>
                 </div>
               </div>
 
               <div className="text-right">
                 <span className="font-sans text-xs text-antigravity-charcoal/70 mr-2 font-medium">
-                  Total Outflow:
+                  {t("totalOutflow")}:
                 </span>
                 <span className="font-serif text-base sm:text-lg font-bold text-antigravity-navy">
                   ₹{Math.round(totOutflow).toLocaleString("en-IN")}
@@ -861,7 +958,7 @@ export default function SchemeCalculatorFlow({
         <div className="bg-white rounded-3xl p-6 border border-antigravity-navy/10 shadow-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h4 className="font-serif text-base font-bold text-antigravity-navy mb-0.5">
-              Structured Scheme Roadmap Ready
+              {t("schemeRoadmapReady")}
             </h4>
             <p className="font-sans text-xs text-antigravity-charcoal/70">
               Continue to hyper-local feasibility analysis or generate bank-ready DPR with QR code.
@@ -875,7 +972,7 @@ export default function SchemeCalculatorFlow({
                 className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-antigravity-navy hover:bg-[#081E33] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2"
               >
                 <Compass className="w-3.5 h-3.5" />
-                <span>Feasibility Matrix</span>
+                <span>{t("feasibility")}</span>
               </button>
             )}
 
@@ -885,7 +982,7 @@ export default function SchemeCalculatorFlow({
                 className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center justify-center gap-2"
               >
                 <FileDown className="w-3.5 h-3.5" />
-                <span>Generate DPR</span>
+                <span>{t("generateDpr")}</span>
               </button>
             )}
           </div>

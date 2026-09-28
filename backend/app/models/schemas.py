@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 
 
 class RecommendationEnum(str, Enum):
@@ -29,10 +29,11 @@ class GenderEnum(str, Enum):
 # --- Request Models ---
 
 class BusinessAdvisorRequest(BaseModel):
-    locality: str
-    state: str
-    capital: float
+    locality: str = Field(default="Bassi", validation_alias=AliasChoices("locality", "location"))
+    state: str = Field(default="Rajasthan")
+    capital: float = Field(default=100000.0)
     business_idea: Optional[str] = None
+    project_cost: Optional[float] = None
     user_age: Optional[int] = None
     social_category: SocialCategoryEnum = SocialCategoryEnum.GENERAL
     gender: GenderEnum = GenderEnum.MALE
@@ -46,6 +47,7 @@ class BusinessAdvisorRequest(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     context: Optional[Dict[str, Any]] = None
+    language: Optional[str] = "en"
 
 
 # --- Financial Models ---

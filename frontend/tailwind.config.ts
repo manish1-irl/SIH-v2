@@ -22,8 +22,9 @@ const config: Config = {
         },
       },
       boxShadow: {
-        subtle: "0 10px 25px -5px rgba(10, 37, 64, 0.08)",
-        elevated: "0 20px 35px -10px rgba(10, 37, 64, 0.14)",
+        subtle: "0 8px 22px -4px rgba(180, 160, 135, 0.22), 0 3px 8px -2px rgba(180, 160, 135, 0.12)",
+        elevated: "0 16px 36px -6px rgba(180, 160, 135, 0.28), 0 6px 14px -3px rgba(180, 160, 135, 0.16)",
+        warm: "0 10px 25px -4px rgba(180, 160, 135, 0.28), 0 4px 10px -2px rgba(180, 160, 135, 0.16)",
       },
     },
   },

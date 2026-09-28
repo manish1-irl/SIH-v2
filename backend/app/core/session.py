@@ -16,11 +16,11 @@ class SessionManager:
             cls._sessions[user_id] = {
                 "user_id": user_id,
                 "context": {
-                    "business_idea": "Commercial Mini Dairy & Chilling Unit",
+                    "business_idea": "",
                     "locality": "Bassi",
                     "state": "Rajasthan",
-                    "capital": 100000.0,
-                    "enterprise_name": "Ganga Enterprise",
+                    "capital": 0.0,
+                    "enterprise_name": "",
                     "is_dpr_generated": False,
                     "is_dpr_confirmed": False,
                 },
@@ -29,11 +29,11 @@ class SessionManager:
         sess = cls._sessions[user_id]
         ctx = sess["context"]
         active = {
-            "business_idea": ctx.get("business_idea", "Commercial Mini Dairy & Chilling Unit"),
+            "business_idea": ctx.get("business_idea", ""),
             "locality": ctx.get("locality", "Bassi"),
             "state": ctx.get("state", "Rajasthan"),
-            "capital": float(ctx.get("capital", 100000.0)),
-            "enterprise_name": ctx.get("enterprise_name", f"{ctx.get('locality', 'Bassi')} Enterprise"),
+            "capital": float(ctx.get("capital", 0.0)),
+            "enterprise_name": ctx.get("enterprise_name", ""),
             "is_dpr_generated": bool(ctx.get("is_dpr_generated", False)),
             "is_dpr_confirmed": bool(ctx.get("is_dpr_confirmed", False)),
         }

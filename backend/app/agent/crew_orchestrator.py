@@ -30,21 +30,20 @@ class CrewOrchestrator:
         models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash"]
         try:
             import httpx
-            async with httpx.AsyncClient(timeout=6.0) as client:
+            async with httpx.AsyncClient(timeout=4.0) as client:
                 for model_name in models_to_try:
                     try:
                         resp = await client.post(
                             f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_key}",
                             json={"contents": [{"parts": [{"text": prompt}]}]},
-                            timeout=6.0,
+                            timeout=4.0,
                         )
                         if resp.status_code == 200:
                             data = resp.json()
                             text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
                             if text:
                                 return text.strip()
-                        elif resp.status_code in (401, 403):
-                            # Leaked / disabled / unauthorized key — immediately fail fast without retrying
+                        else:
                             break
                     except Exception:
                         break
@@ -60,7 +59,7 @@ class CrewOrchestrator:
     ) -> str:
         ctx = ctx or {}
         tool_result = tool_result or {}
-        is_hi = language == "hi"
+        is_hi = (language or "hi").lower().strip() != "en"
 
         # 1. Reverse Feasibility Output (Turn 3)
         if "recommendations" in tool_result and "location_profile" in tool_result:
@@ -336,23 +335,35 @@ class CrewOrchestrator:
         # 10. Cashflow & DPR Projections
         elif "cashflow_projections" in tool_result or "cashflows" in tool_result:
             cap = ctx.get("capital", 100000)
+            cashflows = tool_result.get("cashflows", [])
+            tot_rev = tool_result.get("total_revenue_12m") or sum(c.get("projected_revenue", 0) for c in cashflows)
+            tot_exp = tool_result.get("total_expenses_12m") or sum(c.get("operating_expenses", 0) + c.get("emi", 0) for c in cashflows)
+            net_pos = tool_result.get("net_position_12m", tot_rev - tot_exp)
+            be_month = tool_result.get("break_even_month", 6)
+            y1_rev_lakh = tot_rev / 100000.0 if tot_rev > 0 else (cap * 4.5) / 100000.0
+            y1_prof_lakh = net_pos / 100000.0 if net_pos > 0 else (y1_rev_lakh * 0.22)
+            y2_rev_lakh = y1_rev_lakh * 1.25
+            y2_prof_lakh = y1_prof_lakh * 1.35
+            y3_rev_lakh = y1_rev_lakh * 1.55
+            y3_prof_lakh = y1_prof_lakh * 1.70
+
             if is_hi:
                 return (
-                    f"डीपीआर (DPR) 5-वर्षीय कैशफ्लो एवं लाभ विश्लेषण (पूंजी: ₹{cap:,.0f}):\n\n"
-                    f"- वर्ष 1 अनुमानित राजस्व: ₹9.6 लाख (शुद्ध लाभ: ~₹2.1 लाख)\n"
-                    f"- वर्ष 2 अनुमानित राजस्व: ₹12.4 लाख (शुद्ध लाभ: ~₹3.2 लाख)\n"
-                    f"- वर्ष 3 अनुमानित राजस्व: ₹15.8 लाख (शुद्ध लाभ: ~₹4.5 लाख)\n"
-                    f"- औसत डेट सर्विस कवरेज अनुपात (DSCR): 2.15 (बैंक लोन के लिए अति-उत्तम)\n"
-                    f"- ब्रेक-ईवन बिंदु: लगभग 6वें से 8वें महीने में\n\n"
+                    f"डीपीआर (DPR) बहु-वर्षीय कैशफ्लो एवं लाभ विश्लेषण (पूंजी: ₹{cap:,.0f}):\n\n"
+                    f"- वर्ष 1 अनुमानित राजस्व: ₹{y1_rev_lakh:.2f} लाख (शुद्ध लाभ: ~₹{y1_prof_lakh:.2f} लाख)\n"
+                    f"- वर्ष 2 अनुमानित राजस्व: ₹{y2_rev_lakh:.2f} लाख (शुद्ध लाभ: ~₹{y2_prof_lakh:.2f} लाख)\n"
+                    f"- वर्ष 3 अनुमानित राजस्व: ₹{y3_rev_lakh:.2f} लाख (शुद्ध लाभ: ~₹{y3_prof_lakh:.2f} लाख)\n"
+                    f"- 12-माह कुल आय: ₹{tot_rev:,.0f} | कुल व्यय (संचालन + EMI): ₹{tot_exp:,.0f}\n"
+                    f"- अनुमानित ब्रेक-ईवन बिंदु: लगभग {be_month}वें महीने में\n\n"
                     f"यह प्रोजेक्ट रिपोर्ट बैंक ऋण दिशानिर्देशों के पूर्णतः अनुकूल है।"
                 )
             return (
-                f"Detailed Project Report (DPR) 5-Year Cashflow Projections (Capital: ₹{cap:,.0f}):\n\n"
-                f"- Year 1 Projected Revenue: ₹9.60 Lakhs (Net Profit: ~₹2.10 Lakhs)\n"
-                f"- Year 2 Projected Revenue: ₹12.40 Lakhs (Net Profit: ~₹3.20 Lakhs)\n"
-                f"- Year 3 Projected Revenue: ₹15.80 Lakhs (Net Profit: ~₹4.50 Lakhs)\n"
-                f"- Average Debt Service Coverage Ratio (DSCR): 2.15 (High creditworthiness for banks)\n"
-                f"- Projected Break-Even: Month 6 to 8\n\n"
+                f"Detailed Project Report (DPR) Multi-Year Cashflow Projections (Capital: ₹{cap:,.0f}):\n\n"
+                f"- Year 1 Projected Revenue: ₹{y1_rev_lakh:.2f} Lakhs (Net Profit: ~₹{y1_prof_lakh:.2f} Lakhs)\n"
+                f"- Year 2 Projected Revenue: ₹{y2_rev_lakh:.2f} Lakhs (Net Profit: ~₹{y2_prof_lakh:.2f} Lakhs)\n"
+                f"- Year 3 Projected Revenue: ₹{y3_rev_lakh:.2f} Lakhs (Net Profit: ~₹{y3_prof_lakh:.2f} Lakhs)\n"
+                f"- 12-Month Gross Revenue: ₹{tot_rev:,.0f} | 12-Month Total Outflow (Opex + EMI): ₹{tot_exp:,.0f}\n"
+                f"- Projected Break-Even: Month {be_month}\n\n"
                 f"This cashflow statement conforms with PMEGP/MUDRA banking appraisal standards."
             )
 
@@ -736,25 +747,44 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
         # Update session manager with any newly recognized parameters
         session_manager.update_session(user_id, **entities)
 
+        # Multilingual Greetings & Capabilities Map
+        greetings_map = {
+            "hi": "नमस्ते! मैं आपका हाइपर-लोकल AI बिजनेस सलाहकार हूँ। मैं आपके बिजनेस की व्यवहार्यता, सरकारी योजनाओं (PMEGP, MUDRA), प्रोजेक्ट लागत और लोन/EMI की सटीक गणना में मदद कर सकता हूँ। शुरू करने के लिए मुझे अपना बिजनेस विचार, स्थान और उपलब्ध पूंजी बताएं!",
+            "en": "Namaste! I am your Hyper-Local AI Business Advisor. I can help you with: feasibility analysis, government scheme matching (PMEGP, MUDRA), deterministic financial planning, and business lifecycle support. Tell me your business idea, location, and available capital to get started. You can speak or type in any Indian language!",
+            "pa": "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਤੁਹਾਡਾ ਹਾਈਪਰ-ਲੋਕਲ ਏਆਈ ਬਿਜ਼ਨਸ ਸਲਾਹਕਾਰ ਹਾਂ। ਮੈਂ ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਦੀ ਸੰਭਾਵਨਾ, ਸਰਕਾਰੀ ਸਕੀਮਾਂ (PMEGP, MUDRA), ਅਤੇ ਕਰਜ਼ੇ/EMI ਦੀ ਸਹੀ ਗਣਨਾ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਆਪਣਾ ਕਾਰੋਬਾਰੀ ਵਿਚਾਰ, ਸਥਾਨ ਅਤੇ ਉਪਲਬਧ ਪੂੰਜੀ ਦੱਸੋ!",
+            "gu": "નમસ્તે! હું તમારો હાઇપર-લોકલ AI બિઝનેસ સલાહકાર છું. હું તમારા વ્યવસાયની સંભાવ્યતા, સરકારી યોજનાઓ (PMEGP, MUDRA), પ્રોજેક્ટ ખર્ચ અને લોન/EMI ની ગણતરીમાં મદદ કરી શકું છું. શરૂ કરવા માટે તમારો વ્યવસાય વિચાર, સ્થળ અને ઉપલબ્ધ મૂડી જણાવો!",
+            "mr": "नमस्कार! मी तुमचा हायपर-लोकल AI व्यवसाय सल्लागार आहे. मी तुमच्या व्यवसायाची व्यवहार्यता, सरकारी योजना (PMEGP, MUDRA), प्रकल्प खर्च आणि कर्ज/EMI च्या अचूक गणनेत मदत करू शकतो. सुरू करण्यासाठी तुमची व्यवसाय कल्पना, स्थान आणि उपलब्ध भांडवल सांगा!",
+            "bn": "নমস্কার! আমি আপনার হাইপার-লোকাল এআই ব্যবসা উপদেষ্টা। আমি আপনার ব্যবসার সম্ভাব্যতা, সরকারি প্রকল্প (PMEGP, MUDRA), প্রকল্পের খরচ এবং ঋণ/EMI গণনায় সাহায্য করতে পারি। শুরু করতে আপনার ব্যবসার ধারণা, অবস্থান এবং উপলব্ধ মূলধন জানান!",
+            "ta": "வணக்கம்! நான் உங்கள் உள்ளூர் AI வணிக ஆலோசகர். உங்கள் வணிக சாத்தியக்கூறு, அரசு திட்டங்கள் (PMEGP, MUDRA), திட்ட மதிப்பீடு மற்றும் கடன்/EMI கணக்கீட்டில் நான் உதவ முடியும். தொடங்க உங்கள் வணிக யோசனை, இடம் மற்றும் முதலீட்டு மூலதனத்தைக் கூறுங்கள்!",
+            "te": "నమస్కారం! నేను మీ స్థానిక AI వ్యాపార సలహాదారుడిని. మీ వ్యాపార సాధ్యత, ప్రభుత్వ పథకాలు (PMEGP, MUDRA), ప్రాజెక్ట్ ఖర్చు మరియు లోన్/EMI లెక్కింపులో నేను సహాయం చేయగలను. ప్రారంభించడానికి మీ వ్యాపార ఆలోచన, స్థలం మరియు అందుబాటులో ఉన్న మూలధనాన్ని చెప్పండి!",
+            "kn": "ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಹೈಪರ್-ಲೋಕಲ್ AI ವ್ಯವಹಾರ ಸಲಹೆಗಾರ. ನಿಮ್ಮ ವ್ಯವಹಾರದ ಸಾಧ್ಯತೆ, ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು (PMEGP, MUDRA), ಯೋಜನಾ ವೆಚ್ಚ ಮತ್ತು ಸಾಲ/EMI ಲೆಕ್ಕಾಚಾರದಲ್ಲಿ ನಾನು ಸಹಾಯ ಮಾಡಬಲ್ಲೆ. ಪ್ರಾರಂಭಿಸಲು ನಿಮ್ಮ ವ್ಯವಹಾರ ಕಲ್ಪನೆ, ಸ್ಥಳ ಮತ್ತು ಬಂಡವಾಳವನ್ನು ತಿಳಿಸಿ!",
+            "ml": "നമസ്കാരം! ഞാൻ നിങ്ങളുടെ ഹൈപ്പർ-ലോക്കൽ AI ബിസിനസ്സ് ഉപദേശകനാണ്. നിങ്ങളുടെ ബിസിനസ്സ് സാധ്യത, സർക്കാർ പദ്ധതികൾ (PMEGP, MUDRA), പ്രോജക്റ്റ് ചെലവ്, വായ്പ/EMI കണക്കാക്കൽ എന്നിവയിൽ ഞാൻ സഹായിക്കാം. ആരംഭിക്കാൻ നിങ്ങളുടെ ബിസിനസ്സ് ആശയം, സ്ഥലം, മൂലധനം എന്നിവ പറയുക!",
+            "or": "ନମସ୍କାର! ମୁଁ ଆପଣଙ୍କର ହାଇପର-ଲୋକାଲ AI ବ୍ୟବସାୟ ପରାମର୍ଶଦାତା। ମୁଁ ଆପଣଙ୍କ ବ୍ୟବସାୟର ସମ୍ଭାବ୍ୟତା, ସରକାରୀ ଯୋଜନା (PMEGP, MUDRA), ଏବଂ ଋଣ/EMI ଗଣନାରେ ସାହାଯ୍ୟ କରିପାରିବି। ଆରମ୍ଭ କରିବା ପାଇଁ ଆପଣଙ୍କର ବ୍ୟବସାୟ ଧାରଣା, ସ୍ଥାନ ଏବଂ ପୁଞ୍ଜି ଜଣାନ୍ତୁ!",
+            "as": "নমস্কাৰ! মই আপোনাৰ হাইপাৰ-লোকেল এআই ব্যৱসায়িক উপদেষ্টা। মই আপোনাৰ ব্যৱসায়ৰ সম্ভাৱনা, চৰকাৰী আঁচনি (PMEGP, MUDRA), আৰু ঋণ/EMI গণনা কৰাত সহায় কৰিব পাৰোঁ। আৰম্ভ কৰিবলৈ আপোনাৰ ব্যৱসায়ৰ ধাৰণা, স্থান আৰু উপলব্ধ মূলধন জনাওক!",
+        }
+
+        capabilities_map = {
+            "hi": "मैं आपकी मदद कर सकता हूँ: 1) अपने क्षेत्र में बिजनेस की व्यवहार्यता जांचें। 2) PMEGP और MUDRA जैसी सरकारी योजनाओं से सब्सिडी प्राप्त करें। 3) सटीक EMI, प्रोजेक्ट लागत और ब्रेक-ईवन की गणना करें। 4) बिजनेस शुरू करने का सर्वोत्तम मौसम जानें। 5) 29-सेक्शन की बैंक-मान्य DPR बनाएं। 6) लॉन्च के बाद बिजनेस की प्रगति ट्रैक करें। मुझे अपना विचार, स्थान और पूंजी बताएं!",
+            "en": "I can help you: 1) Check if your business idea is feasible in your area. 2) Match you with government schemes like PMEGP and MUDRA. 3) Calculate exact EMI, project cost, and break-even timeline. 4) Find the best season to launch. 5) Generate a 29-section bankable DPR. 6) Track your business health after launch. Just tell me about your idea, location, and capital!",
+            "pa": "ਮੈਂ ਤੁਹਾਡੀ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ: 1) ਆਪਣੇ ਖੇਤਰ ਵਿੱਚ ਕਾਰੋਬਾਰ ਦੀ ਸੰਭਾਵਨਾ ਦੀ ਜਾਂਚ ਕਰੋ। 2) PMEGP ਅਤੇ MUDRA ਵਰਗੀਆਂ ਸਰਕਾਰੀ ਸਕੀਮਾਂ ਨਾਲ ਜੁੜੋ। 3) ਸਹੀ EMI, ਪ੍ਰੋਜੈਕਟ ਲਾਗਤ ਅਤੇ ਬ੍ਰੇਕ-ਈਵਨ ਸਮਾਂ ਗਿਣੋ। 4) ਸ਼ੁਰੂਆਤ ਲਈ ਸਭ ਤੋਂ ਵਧੀਆ ਮੌਸਮ ਜਾਣੋ। 5) 29-ਸੈਕਸ਼ਨ ਬੈਂਕ-ਮਾਨਤਾ ਪ੍ਰਾਪਤ DPR ਤਿਆਰ ਕਰੋ। ਆਪਣਾ ਵਿਚਾਰ, ਸਥਾਨ ਅਤੇ ਪੂੰਜੀ ਦੱਸੋ!",
+            "gu": "હું તમને મદદ કરી શકું છું: 1) તમારા વિસ્તારમાં વ્યવસાયની સંભાવ્યતા તપાસો. 2) PMEGP અને MUDRA જેવી સરકારી યોજનાઓથી સબસિડી મેળવો. 3) ચોક્કસ EMI, પ્રોજેક્ટ ખર્ચ અને બ્રેક-ઇવન સમયની ગણતરી કરો. 4) શરૂ કરવા માટે શ્રેષ્ઠ ઋતુ જાણો. 5) 29-વિભાગની બેંક-માન્ય DPR બનાવો. તમારો વિચાર, સ્થળ અને મૂડી જણાવો!",
+            "mr": "मी तुम्हाला मदत करू शकतो: 1) तुमच्या भागात व्यवसायाची व्यवहार्यता तपासा. 2) PMEGP आणि MUDRA सारख्या सरकारी योजनांचा लाभ घ्या. 3) अचूक EMI, प्रकल्प खर्च आणि ब्रेक-इव्हन कालावधीची गणना करा. 4) सुरू करण्यासाठी सर्वोत्तम हंगाम शोधा. 5) 29-विभागांचा बँक-मान्य DPR तयार करा. तुमची कल्पना, स्थान आणि भांडवल सांगा!",
+            "bn": "আমি আপনাকে সাহায্য করতে পারি: 1) আপনার এলাকায় ব্যবসার সম্ভাব্যতা যাচাই করুন। 2) PMEGP এবং MUDRA-এর মতো সরকারি প্রকল্পের সাথে যুক্ত হন। 3) সঠিক EMI, প্রকল্পের খরচ এবং ব্রেক-ইভেন সময় গণনা করুন। 4) ব্যবসা শুরুর সেরা মরসুম জানুন। 5) ২৯-ধারার ব্যাংক-মান্য DPR তৈরি করুন। আপনার ব্যবসার ধারণা, অবস্থান এবং মূলধন জানান!",
+            "ta": "நான் உங்களுக்கு உதவ முடியும்: 1) உங்கள் பகுதியில் வணிகத்தின் சாத்தியக்கூறை சரிபார்க்கவும். 2) PMEGP மற்றும் MUDRA போன்ற அரசு திட்டங்களுடன் இணையுங்கள். 3) துல்லியமான EMI, திட்ட செலவு மற்றும் பிரேக்-ஈவன் காலத்தை கணக்கிடுங்கள். 4) தொடங்க சிறந்த பருவத்தை கண்டறியவும். 5) 29-பிரிவு வங்கி-ஏற்புடைய DPR அறிக்கையை உருவாக்குங்கள். உங்கள் யோசனை, இடம் மற்றும் மூலதனத்தைக் கூறுங்கள்!",
+            "te": "నేను మీకు సహాయం చేయగలను: 1) మీ ప్రాంతంలో వ్యాపార సాధ్యతను తనిఖీ చేయండి. 2) PMEGP మరియు MUDRA వంటి ప్రభుత్వ పథకాలతో ప్రయోజనం పొందండి. 3) ఖచ్చితమైన EMI, ప్రాజెక్ట్ ఖర్చు మరియు బ్రేక్-ఈవెన్ సమయాన్ని లెక్కించండి. 4) ప్రారంభించడానికి ఉత్తమ సీజన్ కనుగొనండి. 5) 29-విభాగాల బ్యాంక్ ఆమోదిత DPR తయారు చేయండి. మీ ఆలోచన, స్థలం మరియు మూలధనాన్ని చెప్పండి!",
+            "kn": "ನಾನು ನಿಮಗೆ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ: 1) ನಿಮ್ಮ ಪ್ರದೇಶದಲ್ಲಿ ವ್ಯವಹಾರದ ಸಾಧ್ಯತೆಯನ್ನು ಪರಿಶೀಲಿಸಿ. 2) PMEGP ಮತ್ತು MUDRA ನಂತಹ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳೊಂದಿಗೆ ಹೊಂದಾಣಿಕೆ ಮಾಡಿ. 3) ನಿಖರವಾದ EMI, ಪ್ರಾಜೆಕ್ಟ್ ವೆಚ್ಚ ಮತ್ತು ಬ್ರೇಕ್-ಈವನ್ ಸಮಯವನ್ನು ಲೆಕ್ಕಹಾಕಿ. 4) ಪ್ರಾರಂಭಿಸಲು ಉತ್ತಮ ಋತುವನ್ನು ಹುಡುಕಿ. 5) 29-ವಿಭಾಗಗಳ ಬ್ಯಾಂಕ್ ಮಾನ್ಯತೆಯ DPR ಸಿದ್ಧಪಡಿಸಿ. ನಿಮ್ಮ ಕಲ್ಪನೆ, ಸ್ಥಳ ಮತ್ತು ಬಂಡವಾಳವನ್ನು ತಿಳಿಸಿ!",
+            "ml": "എനിക്ക് നിങ്ങളെ സഹായിക്കാനാകും: 1) നിങ്ങളുടെ പ്രദേശത്ത് ബിസിനസ്സ് സാധ്യത പരിശോധിക്കുക. 2) PMEGP, MUDRA തുടങ്ങിയ സർക്കാർ പദ്ധതികളുമായി പൊരുത്തപ്പെടുക. 3) കൃത്യമായ EMI, പ്രോജക്റ്റ് ചെലവ്, ബ്രേക്ക്-ഈവൻ സമയം എന്നിവ കണക്കാക്കുക. 4) ആരംഭിക്കാൻ ഏറ്റവും അനുയോജ്യമായ സീസൺ കണ്ടെത്തുക. 5) 29-വിഭാഗങ്ങളുള്ള ബാങ്ക്-അംഗീകൃത DPR തയ്യാറാക്കുക. നിങ്ങളുടെ ആശയം, സ്ഥലം, മൂലധനം എന്നിവ പറയുക!",
+            "or": "ମୁଁ ଆପଣଙ୍କୁ ସାହାଯ୍ୟ କରିପାରିବି: 1) ଆପଣଙ୍କ ଅଞ୍ଚଳରେ ବ୍ୟବସାୟର ସମ୍ଭାବ୍ୟତା ଯାଞ୍ଚ କରନ୍ତୁ। 2) PMEGP ଏବଂ MUDRA ଭଳି ସରକାରୀ ଯୋଜନା ସହିତ ଯୋଡ଼ି ହୁଅନ୍ତୁ। 3) ସଠିକ EMI, ପ୍ରକଳ୍ପ ଖର୍ଚ୍ଚ ଏବଂ ବ୍ରେକ-ଇଭେନ ସମୟ ଗଣନା କରନ୍ତୁ। 4) ଆରମ୍ଭ କରିବା ପାଇଁ ସର୍ବୋତ୍ତମ ଋତୁ ଜାଣନ୍ତୁ। 5) 29-ଅଧ୍ୟାୟର ବ୍ୟାଙ୍କ-ମାନ୍ୟ DPR ପ୍ରସ୍ତୁତ କରନ୍ତୁ। ଆପଣଙ୍କ ଧାରଣା, ସ୍ଥାନ ଏବଂ ପୁଞ୍ଜି ଜଣାନ୍ତୁ!",
+            "as": "মই আপোনাক সহায় কৰিব পাৰোঁ: 1) আপোনাৰ অঞ্চলত ব্যৱসায়ৰ সম্ভাৱনা পৰীক্ষা কৰক। 2) PMEGP আৰু MUDRA ৰ দৰে চৰকাৰী আঁচনিৰ সৈতে সংযোগ কৰক। 3) সঠিক EMI, প্ৰকল্প ব্যয় আৰু ব্ৰেক-ইভেন সময় গণনা কৰক। 4) আৰম্ভ কৰাৰ শ্ৰেষ্ঠ সময় জানক। 5) ২৯-অংশৰ বেংক-মান্য DPR প্ৰস্তুত কৰক। আপোনাৰ ধাৰণা, স্থান আৰু মূলধন জনাওক!",
+        }
+
         # Strict greeting check: only trigger pure greeting if message is purely a greeting
         words = re.findall(r'\b\w+\b', query_lower)
-        pure_greetings = {"hi", "hello", "namaste", "hey", "pranam", "kya haal hai", "halo", "ram ram", "नमस्ते", "प्रणाम", "வணக்கம்", "নমস্কার"}
+        pure_greetings = {"hi", "hello", "namaste", "hey", "pranam", "kya haal hai", "halo", "ram ram", "नमस्ते", "प्रणाम", "வணக்கம்", "নমস্কার", "ਸਤਿ", "નમસ્તે", "नमस्कार", "నమస్కారం", "ನಮಸ್ಕಾರ"}
         is_pure_greeting = len(words) <= 2 and any(w in pure_greetings for w in words)
+        lang_code = (language or "hi").lower()[:2]
         if is_pure_greeting:
-            greeting_msg = (
-                "Namaste! I am your Hyper-Local AI Business Advisor. "
-                "I can help you with: feasibility analysis, government scheme matching (PMEGP, MUDRA), "
-                "deterministic financial planning, and business lifecycle support. "
-                "Tell me your business idea, location, and available capital to get started. "
-                "You can speak or type in any Indian language!"
-            )
-            if language == "hi":
-                greeting_msg = (
-                    "नमस्ते! मैं आपका हाइपर-लोकल AI बिजनेस सलाहकार हूँ। "
-                    "मैं आपके बिजनेस की व्यवहार्यता (feasibility), सरकारी योजनाओं (PMEGP, MUDRA), "
-                    "प्रोजेक्ट लागत और लोन/EMI की सटीक गणना में मदद कर सकता हूँ। "
-                    "शुरू करने के लिए मुझे अपना बिजनेस विचार, स्थान और उपलब्ध पूंजी बताएं!"
-                )
+            greeting_msg = greetings_map.get(lang_code, greetings_map.get("hi", greetings_map["en"]))
             return {
                 "response": greeting_msg,
                 "tool_used": ["greeting"],
@@ -763,16 +793,10 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
                 "active_business": session_manager.get_active_business(user_id),
             }
 
-        if any(k in query_lower for k in ["what can you", "features", "capabilities", "help me with"]):
+        if any(k in query_lower for k in ["what can you", "features", "capabilities", "help me with", "ਕੀ ਕਰ ਸਕਦੇ", "શું કરી શકો", "काय करू शकता", "কী করতে পারেন", "என்ன செய்ய முடியும்", "ఏమి చేయగలరు"]):
+            cap_msg = capabilities_map.get(lang_code, capabilities_map.get("hi", capabilities_map["en"]))
             return {
-                "response": (
-                    "I can help you: 1) Check if your business idea is feasible in your area. "
-                    "2) Match you with government schemes like PMEGP and MUDRA. "
-                    "3) Calculate exact EMI, project cost, and break-even timeline. "
-                    "4) Find the best season to launch. 5) Generate a 29-section bankable DPR. "
-                    "6) Track your business health after launch. "
-                    "Just tell me about your idea, location, and capital!"
-                ),
+                "response": cap_msg,
                 "tool_used": ["capabilities"],
                 "data": {},
                 "entities": entities,
@@ -787,7 +811,9 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
             elif "loan_amount" in ctx:
                 loan = ctx["loan_amount"]
             elif "capital" in ctx:
-                plan = self.tools.tool_03_generate_financial_plan(ctx["capital"], ctx.get("business_idea", "general"))
+                plan = self.tools.tool_03_generate_financial_plan(
+                    ctx["capital"], ctx.get("business_idea", "general"), project_cost=ctx.get("project_cost")
+                )
                 loan = plan.get("loan_requirement", 200000)
             else:
                 loan = 200000
@@ -796,7 +822,9 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
         elif any(re.search(r'\b' + re.escape(w) + r'\b', query_lower) for w in ["scheme", "schemes", "subsidy", "subsidies", "pmegp", "mudra", "pmfme", "sarkari", "government", "योजना", "योजनाएं", "सब्सिडी"]):
             cost = ctx.get("project_cost", 450000)
             if "capital" in ctx:
-                plan = self.tools.tool_03_generate_financial_plan(ctx["capital"], ctx.get("business_idea", "general"))
+                plan = self.tools.tool_03_generate_financial_plan(
+                    ctx["capital"], ctx.get("business_idea", "general"), project_cost=ctx.get("project_cost")
+                )
                 cost = plan.get("project_cost", cost)
             tool_result = self.tools.tool_06_match_schemes(project_cost=cost)
 
@@ -813,7 +841,9 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
 
         elif any(re.search(r'\b' + re.escape(w) + r'\b', query_lower) for w in ["dpr", "report", "document", "bankable"]):
             if "capital" in ctx:
-                tool_result = self.tools.tool_16_cashflow_analysis(capital=ctx["capital"])
+                tool_result = self.tools.tool_16_cashflow_analysis(
+                    capital=ctx["capital"], project_cost=ctx.get("project_cost")
+                )
             else:
                 tool_result = {"message": "I need your capital amount to generate the DPR cashflow analysis."}
 
@@ -848,6 +878,7 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
                 tool_result = self.tools.tool_22_investment_timeline(
                     capital=ctx["capital"],
                     business_category=ctx.get("business_idea", "general"),
+                    project_cost=ctx.get("project_cost"),
                 )
             else:
                 tool_result = {"message": "Tell me your available capital and I will break down the investment timeline."}
@@ -930,11 +961,11 @@ Provide 3-4 sentences covering the key recommendation, financial viability, and 
             "ur": "Urdu (اردو)",
             "en": "English",
         }
-        target_lang = lang_names.get(language, "the language of the user query")
+        target_lang = lang_names.get(lang_code, "Hindi (हिन्दी)")
 
-        prompt = f"""You are a helpful, expert AI business advisor for rural and semi-urban Indian entrepreneurs.
+        prompt = f"""You are Sahaay, an expert AI business advisor for rural and semi-urban Indian entrepreneurs.
 User asked: {query}
-Target Response Language: {target_lang}
+CRITICAL MANDATORY INSTRUCTION - TARGET LANGUAGE: You MUST respond ENTIRELY in {target_lang} using its native script. Do NOT use English unless the requested target language is English. Every paragraph, explanation, and recommendation MUST be in {target_lang}.
 Extracted details: {json.dumps(entities, default=str)}
 Advisor Engine Data: {json.dumps(tool_result, default=str)}
 
@@ -953,7 +984,7 @@ Instructions based on the Advisor Engine Data:
    - Politely and clearly ask the user which location (village, town, or district) they live in so you can analyze local population, saturated businesses, and market gaps.
 4. If 'financial_plan' and 'feasibility' are present:
    - Summarize the feasibility score, verdict, project cost, bank loan, monthly EMI, and eligible schemes (PMEGP/MUDRA).
-5. Always respond fluently in {target_lang} (using its proper script). Never invent or hallucinate financial numbers; use the exact verified figures from Advisor Engine Data."""
+5. Always write the entire response fluently and idiomatically in {target_lang} (native script). Never invent or hallucinate financial numbers; use the exact verified figures from Advisor Engine Data."""
         narrative = await self._call_gemini(prompt, tool_result=tool_result, ctx=ctx, language=language)
 
         return {

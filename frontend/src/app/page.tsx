@@ -8,23 +8,10 @@ import FeasibilityMatrixFlow from "@/components/feasibility/FeasibilityMatrixFlo
 import SchemeCalculatorFlow from "@/components/schemes/SchemeCalculatorFlow";
 import ClusterNetworkFlow from "@/components/cluster/ClusterNetworkFlow";
 import PersonalDashboardView from "@/components/dashboard/PersonalDashboardView";
+import UserProfileModal from "@/components/profile/UserProfileModal";
 import { getCurrentUser, logoutUser, UserProfile } from "@/lib/supabase";
+import { SUPPORTED_LANGUAGES, getTranslation } from "@/lib/translations";
 import { ReverseFeasibilityRecommendation } from "@/types";
-
-const LANGUAGES = [
-  { code: "hi", name: "Hindi", native: "हिन्दी" },
-  { code: "en", name: "English", native: "English" },
-  { code: "bn", name: "Bengali", native: "বাংলা" },
-  { code: "ta", name: "Tamil", native: "தமிழ்" },
-  { code: "te", name: "Telugu", native: "తెలుగు" },
-  { code: "mr", name: "Marathi", native: "मराठी" },
-  { code: "gu", name: "Gujarati", native: "ગુજરાતી" },
-  { code: "kn", name: "Kannada", native: "ಕನ್ನಡ" },
-  { code: "ml", name: "Malayalam", native: "മലയാളം" },
-  { code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ" },
-  { code: "or", name: "Odia", native: "ଓଡ଼ିଆ" },
-  { code: "as", name: "Assamese", native: "অসমীয়া" },
-];
 
 export default function HomePage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -33,16 +20,46 @@ export default function HomePage() {
   const [messages, setMessages] = useState<HomeChatMessage[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [language, setLanguage] = useState("hi");
+  const [language, setLanguage] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sahaay_language") || "hi";
+    }
+    return "hi";
+  });
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
 
+  const handleLanguageChange = (newLang: string) => {
+    setLanguage(newLang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sahaay_language", newLang);
+    }
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === "initial-greeting"
+          ? { ...msg, text: getTranslation(newLang, "initialGreeting") }
+          : msg
+      )
+    );
+  };
+
   // Dynamic shared business parameters across the application (Synchronized from User Chat)
-  const [businessIdea, setBusinessIdea] = useState("Commercial Mini Dairy & Chilling Unit");
-  const [locality, setLocality] = useState("Bassi");
-  const [stateName, setStateName] = useState("Rajasthan");
-  const [capital, setCapital] = useState(100000);
+  const [businessIdea, setBusinessIdea] = useState("");
+  const [locality, setLocality] = useState("");
+  const [stateName, setStateName] = useState("India");
+  const [capital, setCapital] = useState(0);
   const [enterpriseName, setEnterpriseName] = useState("");
   const [isDprConfirmed, setIsDprConfirmed] = useState(false);
+
+  // Requirement: Scheme Calculator, Feasibility Matrix, and Cluster require user business idea & margin money
+  const hasRequiredBusinessInfo = Boolean(businessIdea && businessIdea.trim().length > 0 && capital && Number(capital) > 0);
+
+  const handleUpdateBusinessParams = (newIdea: string, newCapital: number, newLocality?: string, newState?: string) => {
+    if (newIdea?.trim()) setBusinessIdea(newIdea.trim());
+    if (newCapital && newCapital > 0) setCapital(newCapital);
+    if (newLocality?.trim()) setLocality(newLocality.trim());
+    if (newState?.trim()) setStateName(newState.trim());
+  };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -52,30 +69,43 @@ export default function HomePage() {
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
+    const savedLang = (typeof window !== "undefined" ? localStorage.getItem("sahaay_language") : null) || user?.preferred_language || "hi";
+    if (typeof window !== "undefined") {
+      setLanguage(savedLang);
+    }
     setIsHydrated(true);
 
     if (!initialGreetingAdded.current) {
       initialGreetingAdded.current = true;
-      const name = user?.full_name ? ` ${user.full_name}` : "";
       setMessages([
         {
           id: "initial-greeting",
           role: "agent",
-          text: `Namaste${name}! I am your Sahaay Hyper-Local AI Business Advisor. I help rural Indian entrepreneurs with feasibility analysis, government scheme matching (PMEGP, MUDRA), financial planning, and business lifecycle support. Tell me your business idea, location, and available capital. You can speak in any Indian language!`,
+          text: getTranslation(savedLang, "initialGreeting"),
           timestamp: Date.now(),
           toolUsed: ["greeting"],
         },
       ]);
     }
 
-    // Restore active session state from backend if available
+    // Restore active session state from backend if available (only if non-empty)
     apiClient.getSession().then((sess) => {
       if (sess?.active_business) {
-        if (sess.active_business.business_idea) setBusinessIdea(sess.active_business.business_idea);
-        if (sess.active_business.capital) setCapital(Number(sess.active_business.capital));
-        if (sess.active_business.locality) setLocality(sess.active_business.locality);
-        if (sess.active_business.state) setStateName(sess.active_business.state);
-        if (sess.active_business.enterprise_name) setEnterpriseName(sess.active_business.enterprise_name);
+        if (sess.active_business.business_idea && sess.active_business.business_idea.trim()) {
+          setBusinessIdea(sess.active_business.business_idea.trim());
+        }
+        if (sess.active_business.capital && Number(sess.active_business.capital) > 0) {
+          setCapital(Number(sess.active_business.capital));
+        }
+        if (sess.active_business.locality && sess.active_business.locality.trim()) {
+          setLocality(sess.active_business.locality.trim());
+        }
+        if (sess.active_business.state && sess.active_business.state.trim()) {
+          setStateName(sess.active_business.state.trim());
+        }
+        if (sess.active_business.enterprise_name) {
+          setEnterpriseName(sess.active_business.enterprise_name);
+        }
       }
     }).catch(() => {});
   }, []);
@@ -188,6 +218,56 @@ export default function HomePage() {
       lower.includes("egg")
     ) {
       setBusinessIdea("Commercial Poultry & Broiler Layer Unit");
+    } else if (
+      lower.includes("bakery") ||
+      lower.includes("biscuit") ||
+      lower.includes("bread") ||
+      lower.includes("cake")
+    ) {
+      setBusinessIdea("Commercial Bakery & Confectionery Unit");
+    } else if (
+      lower.includes("textile") ||
+      lower.includes("cloth") ||
+      lower.includes("handloom") ||
+      lower.includes("dyeing") ||
+      lower.includes("garment")
+    ) {
+      setBusinessIdea("Textile Handloom & Apparel Unit");
+    } else if (
+      lower.includes("solar") ||
+      lower.includes("panel") ||
+      lower.includes("energy")
+    ) {
+      setBusinessIdea("Rooftop Solar & Distributed Clean Energy");
+    } else if (
+      lower.includes("fish") ||
+      lower.includes("fishery") ||
+      lower.includes("matsya") ||
+      lower.includes("aquaculture")
+    ) {
+      setBusinessIdea("Inland Fishery & Aquaculture Unit");
+    } else if (
+      lower.includes("goat") ||
+      lower.includes("bakri") ||
+      lower.includes("sheep") ||
+      lower.includes("livestock")
+    ) {
+      setBusinessIdea("Commercial Goat & Livestock Farming");
+    } else if (
+      lower.includes("cold storage") ||
+      lower.includes("warehouse") ||
+      lower.includes("godown")
+    ) {
+      setBusinessIdea("Rural Cold Storage & Agri-Warehousing");
+    } else {
+      // Natural language business idea extractor: "want to start [a/an] <idea>"
+      const ideaMatch = text.match(/(?:start|open|setup|set\s+up|run|establish|plan|launch)\s+(?:a|an)?\s*([a-zA-Z0-9\s]{3,35}?)(?:\s+(?:business|project|unit|farm|store|shop|mill|enterprise)|\s+in|\s+with|\s+having|\.|$)/i);
+      if (ideaMatch && ideaMatch[1]) {
+        const candidate = ideaMatch[1].trim();
+        if (candidate.length > 2 && !["the", "my", "new", "small", "big", "this", "that"].includes(candidate.toLowerCase())) {
+          setBusinessIdea(candidate.charAt(0).toUpperCase() + candidate.slice(1));
+        }
+      }
     }
 
     // 3. Locality & State
@@ -289,16 +369,18 @@ export default function HomePage() {
         role: "agent",
         text: result.agent_response,
         audioBase64: result.voice_audio_base64,
+        isVoice: true,
         toolUsed: result.tool_used,
         showProceedToDashboard: Boolean(result.tool_used?.includes("tool_06_generate_dpr")),
       });
       if (autoSpeak && result.voice_audio_base64) {
         playAudio(result.voice_audio_base64);
       }
-    } catch {
+    } catch (err: any) {
+      const errMsg = err?.message || "Could not process your voice audio. Please check your microphone and network connection, or type your message instead.";
       addMessage({
         role: "agent",
-        text: "I could not process your voice. Please try speaking again or type your message.",
+        text: errMsg,
         toolUsed: ["voice_error"],
       });
     } finally {
@@ -307,7 +389,7 @@ export default function HomePage() {
   };
 
   // Main interaction query handler — keeps chat inline on the homepage without redirecting
-  const handleTriggerQuery = async (queryText: string, attachments?: ChatAttachment[]) => {
+  const handleTriggerQuery = async (queryText: string, attachments?: ChatAttachment[], isVoiceInput: boolean = false) => {
     const text = queryText.trim();
     if (!text && (!attachments || attachments.length === 0)) return;
     if (isProcessing) return;
@@ -320,7 +402,7 @@ export default function HomePage() {
     addMessage({
       role: "user",
       text: displayText,
-      isVoice: false,
+      isVoice: isVoiceInput,
       attachments,
     });
     setIsProcessing(true);
@@ -369,20 +451,22 @@ export default function HomePage() {
       addMessage({
         role: "agent",
         text: result.agent_response,
-        audioBase64: result.voice_audio_base64,
+        audioBase64: isVoiceInput ? result.voice_audio_base64 : undefined,
+        isVoice: isVoiceInput,
         toolUsed: result.tool_used,
         reverseRecs,
         showProceedToDashboard: dprUnlocked,
       });
 
-      if (autoSpeak && result.voice_audio_base64) {
+      if (isVoiceInput && autoSpeak && result.voice_audio_base64) {
         playAudio(result.voice_audio_base64);
       }
-    } catch {
+    } catch (err: any) {
+      const errMsg = err?.message || "Unable to reach the Sahaay advisory backend. Please check your network connection and ensure the server is running.";
       addMessage({
         role: "agent",
-        text: `I have received your inquiry: "${displayText}". The Sahaay AI Advisor engine computes local market feasibility, deterministic government subsidies (PMEGP, MUDRA, PMFME), and bank loan schedules for ${businessIdea} in ${locality}, ${stateName}.`,
-        toolUsed: ["advisor_engine"],
+        text: `Error contacting Sahaay AI Advisor: ${errMsg}. Please check your connection and try again.`,
+        toolUsed: ["error"],
       });
     } finally {
       setIsProcessing(false);
@@ -419,8 +503,10 @@ export default function HomePage() {
     setCurrentUser(null);
   };
 
-  const handleLoginSuccess = (user: UserProfile) => {
+  const handleLoginSuccess = (user: UserProfile, languageCode?: string) => {
     setCurrentUser(user);
+    const chosenLang = languageCode || user.preferred_language || language;
+    handleLanguageChange(chosenLang);
     setActiveView("home");
     // Set a single clean welcome message
     setMessages([
@@ -434,127 +520,187 @@ export default function HomePage() {
     ]);
   };
 
+  const renderProfileModal = () => {
+    if (!isProfileModalOpen || !currentUser) return null;
+    return (
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentUser={currentUser}
+        language={language}
+        onLanguageChange={handleLanguageChange}
+        businessIdea={businessIdea}
+        capital={capital}
+        locality={locality}
+        stateName={stateName}
+        onUpdateBusinessParams={handleUpdateBusinessParams}
+        onLogout={handleLogout}
+      />
+    );
+  };
+
   // Show login page first when user lands unauthenticated
   if (isHydrated && !currentUser) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        currentLanguage={language}
+        onLanguageChange={handleLanguageChange}
+      />
+    );
   }
 
   // Sub-view: Feasibility Matrix Flow (Receives live synchronized parameters)
   if (activeView === "feasibility") {
     return (
-      <FeasibilityMatrixFlow
-        onBackToHome={() => setActiveView("home")}
-        onProceedToSchemes={() => {
-          setActiveView("schemes");
-        }}
-        onProceedToDpr={() => {
-          handleTriggerQuery(`Generate a Detailed Project Report (DPR) for ${businessIdea} in ${locality} with margin money ₹${capital}.`);
-          setActiveView("home");
-        }}
-        initialLocality={locality}
-        initialState={stateName}
-        initialCapital={capital}
-        initialBusinessIdea={businessIdea}
-      />
+      <>
+        <FeasibilityMatrixFlow
+          onBackToHome={() => setActiveView("home")}
+          onProceedToSchemes={() => {
+            setActiveView("schemes");
+          }}
+          onProceedToDpr={() => {
+            handleTriggerQuery(`Generate a Detailed Project Report (DPR) for ${businessIdea} in ${locality} with margin money ₹${capital}.`);
+            setActiveView("home");
+          }}
+          initialLocality={locality}
+          initialState={stateName}
+          initialCapital={capital}
+          initialBusinessIdea={businessIdea}
+          hasRequiredInfo={hasRequiredBusinessInfo}
+          onUpdateParams={handleUpdateBusinessParams}
+          currentUser={currentUser}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
+          language={language}
+        />
+        {renderProfileModal()}
+      </>
     );
   }
 
   // Sub-view: Scheme Calculator Flow (Receives live synchronized parameters)
   if (activeView === "schemes") {
     return (
-      <SchemeCalculatorFlow
-        onBackToHome={() => setActiveView("home")}
-        onProceedToFeasibility={() => {
-          setActiveView("feasibility");
-        }}
-        onProceedToDpr={() => {
-          handleTriggerQuery(`Generate a Detailed Project Report (DPR) for ${businessIdea} in ${locality} with margin money ₹${capital}.`);
-          setActiveView("home");
-        }}
-        initialCapital={capital}
-        initialBusinessIdea={businessIdea}
-        initialLocality={locality}
-        initialState={stateName}
-      />
+      <>
+        <SchemeCalculatorFlow
+          onBackToHome={() => setActiveView("home")}
+          onProceedToFeasibility={() => {
+            setActiveView("feasibility");
+          }}
+          onProceedToDpr={() => {
+            handleTriggerQuery(`Generate a Detailed Project Report (DPR) for ${businessIdea} in ${locality} with margin money ₹${capital}.`);
+            setActiveView("home");
+          }}
+          initialCapital={capital}
+          initialBusinessIdea={businessIdea}
+          initialLocality={locality}
+          initialState={stateName}
+          hasRequiredInfo={hasRequiredBusinessInfo}
+          onUpdateParams={handleUpdateBusinessParams}
+          currentUser={currentUser}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
+          language={language}
+        />
+        {renderProfileModal()}
+      </>
     );
   }
 
   // Sub-view: Cluster Network Flow (Receives live synchronized parameters)
   if (activeView === "cluster" || activeView === "explore") {
     return (
-      <ClusterNetworkFlow
-        onBackToHome={() => setActiveView("home")}
-        onProceedToSchemes={() => {
-          setActiveView("schemes");
-        }}
-        onProceedToFeasibility={() => {
-          setActiveView("feasibility");
-        }}
-        onProceedToDpr={() => {
-          handleTriggerQuery(`Generate a Detailed Project Report (DPR) for ${businessIdea} in ${locality} with margin money ₹${capital}.`);
-          setActiveView("home");
-        }}
-        initialLocality={locality}
-        initialBusinessIdea={businessIdea}
-      />
+      <>
+        <ClusterNetworkFlow
+          onBackToHome={() => setActiveView("home")}
+          onProceedToSchemes={() => {
+            setActiveView("schemes");
+          }}
+          onProceedToFeasibility={() => {
+            setActiveView("feasibility");
+          }}
+          onProceedToDpr={() => {
+            handleTriggerQuery(`Generate a Detailed Project Report (DPR) for ${businessIdea} in ${locality} with margin money ₹${capital}.`);
+            setActiveView("home");
+          }}
+          initialLocality={locality}
+          initialBusinessIdea={businessIdea}
+          initialCapital={capital}
+          initialState={stateName}
+          hasRequiredInfo={hasRequiredBusinessInfo}
+          onUpdateParams={handleUpdateBusinessParams}
+          currentUser={currentUser}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
+          language={language}
+        />
+        {renderProfileModal()}
+      </>
     );
   }
 
   // Sub-view: Personal Dashboard (Accessible only after user confirms business idea & generates DPR)
   if (activeView === "dashboard") {
     return (
-      <PersonalDashboardView
-        currentUser={currentUser}
-        onBackToHome={() => setActiveView("home")}
-        onLogout={handleLogout}
-        onOpenSchemes={() => setActiveView("schemes")}
-        onOpenFeasibility={() => setActiveView("feasibility")}
-        onOpenExplore={() => setActiveView("cluster")}
-        businessIdea={businessIdea}
-        locality={locality}
-        state={stateName}
-        capital={capital}
-        enterpriseName={enterpriseName || (currentUser?.full_name ? `${currentUser.full_name}'s Enterprise` : `${locality} Enterprise`)}
-      />
+      <>
+        <PersonalDashboardView
+          currentUser={currentUser}
+          onBackToHome={() => setActiveView("home")}
+          onLogout={handleLogout}
+          onOpenSchemes={() => setActiveView("schemes")}
+          onOpenFeasibility={() => setActiveView("feasibility")}
+          onOpenExplore={() => setActiveView("cluster")}
+          businessIdea={businessIdea}
+          locality={locality}
+          state={stateName}
+          capital={capital}
+          enterpriseName={enterpriseName || (currentUser?.full_name ? `${currentUser.full_name}'s Enterprise` : `${locality} Enterprise`)}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
+          language={language}
+        />
+        {renderProfileModal()}
+      </>
     );
   }
 
   // Default Primary View: Home Page with INLINE CHAT directly on homepage (NO redirect to a separate chat page)
   return (
-    <HomePageView
-      currentUser={currentUser}
-      onLogout={handleLogout}
-      language={language}
-      onLanguageChange={(newLang) => setLanguage(newLang)}
-      languages={LANGUAGES}
-      isRecording={isRecording}
-      onStartRecording={startRecording}
-      onStopRecording={stopRecording}
-      onSearchSubmit={(query, attachments) => {
-        handleTriggerQuery(query, attachments);
-      }}
-      onSelectCapability={(capability, promptText) => {
-        if (capability === "dpr") {
-          handleTriggerQuery(promptText);
-        } else {
-          setActiveView(capability);
-        }
-      }}
-      onNavigate={(view) => {
-        setActiveView(view);
-      }}
-      messages={messages}
-      isProcessing={isProcessing}
-      onPlayAudio={playAudio}
-      onSelectBusinessIdea={handleSelectBusinessIdea}
-      onConfirmAndSubmitDpr={handleConfirmAndSubmitDpr}
-      onResetChat={handleResetChat}
-      isDprConfirmed={isDprConfirmed}
-      activeBusinessIdea={businessIdea}
-      activeLocality={locality}
-      activeCapital={capital}
-      autoSpeak={autoSpeak}
-      onToggleAutoSpeak={() => setAutoSpeak((prev) => !prev)}
-    />
+    <>
+      <HomePageView
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        language={language}
+        onLanguageChange={handleLanguageChange}
+        languages={SUPPORTED_LANGUAGES}
+        isRecording={isRecording}
+        onStartRecording={startRecording}
+        onStopRecording={stopRecording}
+        onSearchSubmit={(query, attachments, isVoice = false) => {
+          handleTriggerQuery(query, attachments, isVoice);
+        }}
+        onSelectCapability={(capability, promptText) => {
+          if (capability === "dpr") {
+            handleTriggerQuery(promptText);
+          } else {
+            setActiveView(capability);
+          }
+        }}
+        onNavigate={(view) => {
+          setActiveView(view);
+        }}
+        messages={messages}
+        isProcessing={isProcessing}
+        onPlayAudio={playAudio}
+        onSelectBusinessIdea={handleSelectBusinessIdea}
+        onConfirmAndSubmitDpr={handleConfirmAndSubmitDpr}
+        onResetChat={handleResetChat}
+        isDprConfirmed={isDprConfirmed}
+        activeBusinessIdea={businessIdea}
+        activeLocality={locality}
+        activeCapital={capital}
+        autoSpeak={autoSpeak}
+        onToggleAutoSpeak={() => setAutoSpeak((prev) => !prev)}
+        onOpenProfile={() => setIsProfileModalOpen(true)}
+      />
+      {renderProfileModal()}
+    </>
   );
 }

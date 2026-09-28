@@ -18,9 +18,13 @@ import {
   Check,
   Calculator,
   FileDown,
+  User,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { FeasibilityReportResponse } from "@/types";
+import { UserProfile } from "@/lib/supabase";
+import { getTranslation } from "@/lib/translations";
+import RequiredInfoGuard from "@/components/common/RequiredInfoGuard";
 
 interface FeasibilityMatrixFlowProps {
   onBackToHome: () => void;
@@ -30,43 +34,69 @@ interface FeasibilityMatrixFlowProps {
   initialState?: string;
   initialCapital?: number;
   initialBusinessIdea?: string;
+  hasRequiredInfo?: boolean;
+  onUpdateParams?: (businessIdea: string, capital: number, locality?: string, state?: string) => void;
+  currentUser?: UserProfile | null;
+  onOpenProfile?: () => void;
+  language?: string;
 }
-
-const SECTIONS = [
-  { id: 1, label: "1. Market Reach & GIS", shortName: "Market Reach" },
-  { id: 2, label: "2. Opportunity Analysis", shortName: "Opportunity" },
-  { id: 3, label: "3. SWOT & Local Threats", shortName: "SWOT Matrix" },
-  { id: 4, label: "4. Unit Economics & Pricing", shortName: "Unit Economics" },
-  { id: 5, label: "5. Competitor Density", shortName: "Competitor Density" },
-];
 
 export default function FeasibilityMatrixFlow({
   onBackToHome,
   onProceedToSchemes,
   onProceedToDpr,
-  initialLocality = "Bassi",
-  initialState = "Rajasthan",
-  initialCapital = 1000000,
-  initialBusinessIdea = "Commercial Mini Dairy & Chilling Unit",
+  initialLocality = "Local Area",
+  initialState = "India",
+  initialCapital = 0,
+  initialBusinessIdea = "",
+  hasRequiredInfo,
+  onUpdateParams,
+  currentUser,
+  onOpenProfile,
+  language = "hi",
 }: FeasibilityMatrixFlowProps) {
+  const t = (key: string) => getTranslation(language, key);
+  const sections = [
+    { id: 1, label: t("marketReachGIS"), shortName: t("marketReachShort") },
+    { id: 2, label: t("opportunityAnalysis"), shortName: t("opportunityShort") },
+    { id: 3, label: t("swotMatrixSection"), shortName: t("swotShort") },
+    { id: 4, label: t("unitEconomicsSection"), shortName: t("unitEconomicsShort") },
+    { id: 5, label: t("competitorDensitySection"), shortName: t("competitorDensityShort") },
+  ];
   const [activeSlide, setActiveSlide] = useState(1);
   const [locality, setLocality] = useState(initialLocality);
   const [stateName, setStateName] = useState(initialState);
   const [capital, setCapital] = useState(initialCapital);
   const [businessIdea, setBusinessIdea] = useState(initialBusinessIdea);
 
+  // Synchronize incoming props
+  useEffect(() => {
+    if (initialLocality !== undefined) setLocality(initialLocality);
+  }, [initialLocality]);
+
+  useEffect(() => {
+    if (initialState !== undefined) setStateName(initialState);
+  }, [initialState]);
+
+  useEffect(() => {
+    if (initialCapital !== undefined) setCapital(initialCapital);
+  }, [initialCapital]);
+
+  useEffect(() => {
+    if (initialBusinessIdea !== undefined) setBusinessIdea(initialBusinessIdea);
+  }, [initialBusinessIdea]);
+
   // Server data state
   const [report, setReport] = useState<FeasibilityReportResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Synchronize incoming props
-  useEffect(() => {
-    if (initialLocality) setLocality(initialLocality);
-    if (initialState) setStateName(initialState);
-    if (initialCapital) setCapital(initialCapital);
-    if (initialBusinessIdea) setBusinessIdea(initialBusinessIdea);
-  }, [initialLocality, initialState, initialCapital, initialBusinessIdea]);
+  // Requirement: Feasibility Matrix must only show info if user provided business idea and margin money
+  const isInfoProvided = Boolean(
+    (hasRequiredInfo !== undefined ? hasRequiredInfo : (businessIdea?.trim() && capital > 0)) &&
+    businessIdea?.trim() &&
+    capital > 0
+  );
 
   // Fetch real data from server
   const fetchFeasibilityData = async () => {
@@ -74,142 +104,191 @@ export default function FeasibilityMatrixFlow({
     setErrorMsg(null);
     try {
       const data = await apiClient.analyzeBusiness({
-        locality: locality.trim() || "Bassi",
-        state: stateName.trim() || "Rajasthan",
-        capital: Number(capital) || 1000000,
-        business_idea: businessIdea.trim() || "Commercial Mini Dairy & Chilling Unit",
+        locality: locality.trim() || "Local Area",
+        state: stateName.trim() || "India",
+        capital: Number(capital) || 100000,
+        business_idea: businessIdea.trim() || "Commercial Enterprise",
       });
       setReport(data);
     } catch (err: any) {
-      console.warn("Direct server fetch notice:", err);
-      setErrorMsg("Could not reach backend server. Displaying cached local analysis.");
+      console.warn("Direct server fetch error:", err);
+      setReport(null);
+      setErrorMsg(`Could not generate hyper-local feasibility matrix for ${businessIdea} in ${locality}. Please verify your connection and try again.`);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!isInfoProvided) return;
     fetchFeasibilityData();
-  }, [locality, stateName, capital, businessIdea]);
+  }, [isInfoProvided, locality, stateName, capital, businessIdea]);
 
-  const matrix = report?.evidence?.market_feasibility || {};
+  // Guard against missing business idea and capital: Show Required Information prompt
+  if (!isInfoProvided) {
+    return (
+      <RequiredInfoGuard
+        featureName={t("feasibility")}
+        featureDescription="Market Reach, Opportunity, SWOT, Unit Economics & Competition"
+        businessIdea={businessIdea}
+        capital={capital}
+        locality={locality}
+        stateName={stateName}
+        onBackToHome={onBackToHome}
+        currentUser={currentUser}
+        onOpenProfile={onOpenProfile}
+        language={language}
+        onSubmitInfo={(idea, cap, loc, st) => {
+          setBusinessIdea(idea);
+          setCapital(cap);
+          if (loc) setLocality(loc);
+          if (st) setStateName(st);
+          if (onUpdateParams) {
+            onUpdateParams(idea, cap, loc, st);
+          }
+        }}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-6 text-center font-sans">
+        <Loader2 className="w-10 h-10 text-antigravity-navy animate-spin mb-3" />
+        <h3 className="font-serif text-xl font-bold text-antigravity-navy">
+          {t("computingFeasibility")}
+        </h3>
+        <p className="font-sans text-xs sm:text-sm text-neutral-500 mt-1 max-w-sm">
+          {businessIdea} • {locality}
+        </p>
+      </div>
+    );
+  }
+
+  if (!report || errorMsg) {
+    return (
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-800 mb-4 shadow-subtle border border-amber-200">
+          <AlertTriangle className="w-7 h-7" />
+        </div>
+        <h2 className="font-serif text-2xl font-bold text-antigravity-navy mb-2">
+          {t("feasibilityUnavailable")}
+        </h2>
+        <p className="font-sans text-xs sm:text-sm text-neutral-600 max-w-md mb-6 leading-relaxed">
+          {errorMsg || `Could not compute hyper-local feasibility for ${businessIdea} in ${locality}.`}
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchFeasibilityData}
+            className="px-5 py-2.5 rounded-xl bg-antigravity-navy hover:bg-antigravity-orange text-white text-xs font-semibold transition-all shadow-subtle cursor-pointer flex items-center gap-2"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>{t("retryAnalysis")}</span>
+          </button>
+          <button
+            onClick={onBackToHome}
+            className="px-5 py-2.5 rounded-xl bg-white hover:bg-neutral-100 text-antigravity-navy border border-neutral-300 text-xs font-semibold transition-all shadow-subtle cursor-pointer"
+          >
+            {t("home")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const matrix = report.evidence?.market_feasibility || {};
+  const finPlan = report.evidence?.financial_data;
+  const projectCost = finPlan?.project_cost || capital;
+  const breakEvenMonths = finPlan?.break_even_months || 7;
+
   const marketReach = matrix.market_reach || {
-    radius: "5–10 km Radius",
-    consumer_base_footprint:
-      "Direct coverage across 15 villages in Bassi block with an estimated footprint of 14,000 rural households and supply ties to Jaipur urban dairies.",
-    primary_distribution_channels:
-      "1,000 Litres/day target throughput distributed via highway dhabas on NH-21, sweet sweetmakers in Bassi town, and wholesale buyers at Surajpole/Muhana Mandi.",
-    competitive_supply_advantage:
-      "Integrated 1,000L Bulk Milk Cooler (BMC) with digital fat/SNF testing prevents spoilage, outperforming unorganized informal collectors (Dudhiyas).",
-    transport_node:
-      "NH-48 (Delhi-Jaipur-Mumbai Highway) (Direct transport access along NH-21 (Jaipur-Agra corridor), enabling transit times under 45 minutes to central Jaipur consumption nodes.)",
+    radius: "5–10 km Catchment",
+    consumer_base_footprint: `Direct coverage across local consumer settlements in ${locality} block.`,
+    primary_distribution_channels: "Direct retail, local commercial buyers, and regional distribution points.",
+    competitive_supply_advantage: "Direct local sourcing and modernized quality control outperforming unorganized competitors.",
+    transport_node: `Direct highway and district road transit connectivity connecting ${locality} to regional mandis.`,
   };
 
   const oppAnalysis = matrix.opportunity_analysis || {
-    project_cost_tier_fit:
-      "The ₹10,00,000 capital outlay directly funds a 1,000L Bulk Milk Cooler, automated fat-testing equipment, back-up power generator, and initial raw milk working capital.",
-    unserved_local_niche:
-      "Lack of rapid bulk chilling at the village level forces local farmers to sell warm milk at distress prices; this unit provides immediate chilling and transparent quality-based payouts.",
-    expansion_horizon:
-      "Scale into value-added products (Paneer, Ghee, Flavored Butter Milk) and double BMC capacity to 2,000L after 12 quarters of successful loan repayment.",
+    project_cost_tier_fit: `The ₹${projectCost.toLocaleString("en-IN")} investment directly funds core production equipment, facility utilities, and initial working capital.`,
+    unserved_local_niche: `Addresses high unmet demand for quality-standard ${businessIdea} in ${locality}.`,
+    expansion_horizon: `Scale into value-added variants and expand distribution footprint upon loan stabilization.`,
     recommended_capital_allocation: {
-      total_cost: 1000000,
+      total_cost: projectCost,
       breakdown: [
-        { percent: 45, amount: 450000, label: "Core Production Machinery & Tools" },
-        { percent: 25, amount: 250000, label: "Civil Shed, Power & Water Utilities" },
-        { percent: 20, amount: 200000, label: "Initial Raw Material & Inventory" },
-        { percent: 10, amount: 100000, label: "Statutory FSSAI/Trade Licenses & Working Buffer" },
+        { percent: 45, amount: projectCost * 0.45, label: "Core Production Machinery & Tools" },
+        { percent: 25, amount: projectCost * 0.25, label: "Civil Shed, Power & Water Utilities" },
+        { percent: 20, amount: projectCost * 0.20, label: "Initial Raw Material & Inventory" },
+        { percent: 10, amount: projectCost * 0.10, label: "Statutory Licenses & Working Buffer" },
       ],
     },
   };
 
   const swotData = matrix.swot || {
-    strengths: [
-      "Direct high-speed road connectivity to Jaipur's major APMC mandis via NH-21",
-      "Low promoter contribution of only ₹1,00,000 under the 90% TLS loan scheme",
-      "On-site Bulk Milk Cooling capacity eliminating spoilage losses during transport",
-    ],
-    weaknesses: [
-      "Heavy reliance on grid electricity requiring diesel generator support",
-      "Working capital sensitivity to seasonal milk yield variations (flush vs lean season)",
-      "Initial dependence on local village agents for milk aggregation",
-    ],
-    opportunities: [
-      "Rising consumer preference for verified high-fat buffalo milk in Jaipur suburbs",
-      "High-margin diversification into cottage cheese (Paneer) and Ghee production",
-      "Potential integration with NABARD sub-schemes for solar thermal chilling support",
-    ],
-    threats: [
-      "Aggressive pricing and established procurement networks of regional dairy cooperatives like Saras",
-      "Spikes in cattle feed and fodder prices impacting primary producer margins",
-      "Unseasonal rain disrupting daily morning collection routes across rural feeder roads",
-    ],
+    strengths: report.swot?.strengths || ["Established local demand and high market gap", "Statutory subsidy and concessional credit qualification"],
+    weaknesses: report.swot?.weaknesses || ["Initial working capital requirements", "Dependence on regional infrastructure"],
+    opportunities: report.swot?.opportunities || ["Direct retail margin expansion", "Government priority sector scheme linkage"],
+    threats: report.swot?.threats || ["Local informal competitor pricing pressure", "Input commodity price fluctuations"],
   };
 
   const unitEconomics = matrix.unit_economics || {
-    estimated_gross_margin: 27.6,
-    margin_status: "High Terroir Profitability",
-    break_even_timeline: "8 Months",
-    break_even_subtext: "Accelerated by Grace Moratorium",
-    local_catchment_index: "Medium",
-    catchment_pop: "38,000–65,000 (Estimated) Catchment Pop.",
+    estimated_gross_margin: 24.5,
+    margin_status: "Healthy Operating Margin",
+    break_even_timeline: `${breakEvenMonths} Months`,
+    break_even_subtext: "Supported by Grace Moratorium",
+    local_catchment_index: "Moderate-High",
+    catchment_pop: "Local Catchment Population",
     cost_per_litre: {
-      production_cost: 42.0,
-      production_desc: "Raw material, feed & power",
-      selling_price: 58.0,
-      selling_desc: "Farm gate / Mandi wholesale",
-      net_margin: 16.0,
-      net_margin_desc: "Direct operating spread",
-      capacity_label: "Capacity: 30,000 Litres / Month",
+      production_cost: 45.0,
+      production_desc: "Raw materials, operating utilities & labor",
+      selling_price: 60.0,
+      selling_desc: "Realized wholesale and direct retail price",
     },
-    monthly_summary: {
-      revenue: 1740000,
-      opex: 1260000,
-      ebitda: 480000,
-    },
+    daily_volume: "Standard Commercial Batch Throughput",
+    net_operating_profit_monthly: projectCost * 0.08,
   };
 
   const competitorDensity = matrix.competitor_density || {
-    density_index: 85,
-    density_scope: "Estimated competitor density within 5 km radius of Bassi (Bassi Block)",
-    saturation_insight:
-      "High operational saturation (85% across 25 local nodes), but existing competitors predominantly rely on unorganized, unchilled milk supply, leaving a lucrative entry window for standardized, chilled bulk milk.",
-    cost_advantage_note:
-      "Because Commercial Mini Dairy & Chilling Unit operates with direct sourcing in Bassi, the enterprise holds an operational cost advantage over urban stockists who face multi-tier transportation markups.",
+    density_scope: `Locality Saturation Analysis for ${businessIdea} in ${locality}`,
+    density_index: 38,
+    saturation_insight: `Local supply gap identified. ${businessIdea} demand in ${locality} exceeds existing commercial facilities.`,
+    cost_advantage_note: "Direct sourcing and modern processing provide competitive margins over unorganized intermediaries.",
+    locality_label: `${locality} Commercial Catchment`,
+    saturation_verdict: "Moderate Market Competition",
+    competitor_count: 3,
     landscape_comparison: [
       {
-        badge: "PREVALENT",
-        badge_color: "amber",
-        volume_share: "~60% Volume",
-        name: "Informal Dudhiyas",
-        description:
-          "Local middlemen and unorganized door-to-door vendors without cold-chain storage or adulteration testing.",
-        chilling_infra: "None (Warm Milk)",
-        chilling_status: "danger",
-        pricing_stability: "Volatile / Seasonal",
-      },
-      {
-        badge: "INSTITUTIONAL",
-        badge_color: "navy",
-        volume_share: "~25% Volume",
-        name: "Regional Co-op (Saras)",
-        description:
-          "Structured dairy federation BMC collection routes with fixed procurement rates but strict payout schedules.",
-        chilling_infra: "Central BMC",
-        chilling_status: "safe",
-        pricing_stability: "Rigid / Pre-fixed",
-      },
-      {
         badge: "PROPOSED UNIT",
+        badge_color: "amber",
+        volume_share: "Target: 25% Share",
+        name: `Your Proposed ${businessIdea}`,
+        description: `Modernized production unit with verified machinery and direct distribution in ${locality}.`,
+        infra_label: "Facility / Tech:",
+        infra: "Modernized Standard Facility",
+        cost_metric: "Concessional Scheme Backed",
+        procurement: `Direct Catchment in ${locality}`,
+      },
+      {
+        badge: "LOCAL VENDORS",
+        badge_color: "navy",
+        volume_share: "Current: 45% Share",
+        name: "Unorganized Local Sellers",
+        description: "Fragmented individual micro-traders operating without quality grading standards.",
+        infra_label: "Facility / Tech:",
+        infra: "Basic Traditional Setup",
+        cost_metric: "Variable Local Sourcing",
+        procurement: "Dispersed Micro Sources",
+      },
+      {
+        badge: "REGIONAL MANDI",
         badge_color: "emerald",
-        sub_badge: "TARGET MODEL • High Margin",
-        volume_share: "High Margin",
-        name: "Mini Dairy & Chilling Hub",
-        description:
-          "Direct village aggregation, immediate 4°C cooling, testing at source, directly serving sweet-makers & bulk buyers.",
-        chilling_infra: "On-site 4°C Bulk Tank",
-        chilling_status: "target",
-        value_add: "Zero Curdling Loss",
+        volume_share: "Current: 30% Share",
+        name: "Regional Inflow Supply",
+        description: "Wholesale imports from outside blocks with transit delays and middleman commissions.",
+        infra_label: "Facility / Tech:",
+        infra: "Wholesale Mandi Hub",
+        cost_metric: "Transit & Commission Overhead",
+        procurement: "Inter-District Transport",
       },
     ],
   };
@@ -217,26 +296,26 @@ export default function FeasibilityMatrixFlow({
   return (
     <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden font-sans select-none text-antigravity-charcoal pb-8">
       {/* Top Breadcrumb & Live Parameter Pill Bar */}
-      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-2 z-30 flex flex-wrap items-center justify-between gap-3">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2 z-30 flex flex-wrap items-center justify-between gap-3">
         {/* Breadcrumbs / Back */}
         <div className="flex items-center gap-2">
           <button
             onClick={onBackToHome}
-            className="font-sans text-xs font-semibold text-antigravity-charcoal/80 hover:text-antigravity-orange transition-colors flex items-center gap-1 bg-white/75 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/60 shadow-subtle"
+            className="font-sans text-xs font-semibold text-antigravity-charcoal/80 hover:text-antigravity-orange transition-colors flex items-center gap-1 bg-white/75 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/60 shadow-subtle cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Home</span>
+            <span>{t("home")}</span>
           </button>
           <span className="text-antigravity-navy/40 text-xs">/</span>
           <span className="font-sans text-xs font-bold text-antigravity-navy bg-white/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/60 shadow-subtle">
-            Feasibility Matrix
+            {t("feasibility")}
           </span>
         </div>
 
-        {/* Live Parameters Pill (Synchronized from User Input) */}
+        {/* Live Parameters Pill & User Profile */}
         <div className="flex items-center gap-2">
           <div
-            className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-antigravity-navy/15 text-xs font-semibold text-antigravity-navy shadow-subtle"
+            className="hidden sm:flex items-center gap-2 bg-white/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-antigravity-navy/15 text-xs font-semibold text-antigravity-navy shadow-subtle"
             title="Parameters synchronized with AI advisor"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -255,13 +334,27 @@ export default function FeasibilityMatrixFlow({
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </button>
+
+          {currentUser && onOpenProfile && (
+            <button
+              onClick={onOpenProfile}
+              type="button"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 hover:bg-white backdrop-blur-md border border-white/80 text-xs font-semibold text-antigravity-navy shadow-xs transition-all cursor-pointer"
+              title={t("profile")}
+            >
+              <div className="w-5 h-5 rounded-full bg-antigravity-navy text-white flex items-center justify-center text-[10px] font-bold">
+                {currentUser.full_name ? currentUser.full_name.charAt(0).toUpperCase() : <User className="w-3 h-3" />}
+              </div>
+              <span className="hidden sm:inline max-w-[120px] truncate">{currentUser.full_name}</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Top 5-Stage Step Navigation Pills */}
-      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 mb-3 z-20">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-3 z-20">
         <div className="flex items-center justify-between gap-2 overflow-x-auto py-1 no-scrollbar">
-          {SECTIONS.map((sec) => (
+          {sections.map((sec) => (
             <button
               key={sec.id}
               onClick={() => setActiveSlide(sec.id)}
@@ -285,7 +378,7 @@ export default function FeasibilityMatrixFlow({
       </div>
 
       {/* Main Slide Content Area */}
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 flex flex-col justify-center z-20">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center z-20">
         {isLoading ? (
           <div className="w-full bg-white/95 backdrop-blur-2xl rounded-3xl p-12 border border-antigravity-navy/10 shadow-elevated flex flex-col items-center justify-center text-center min-h-[400px]">
             <Loader2 className="w-10 h-10 text-antigravity-sage animate-spin mb-4" />
@@ -450,7 +543,7 @@ export default function FeasibilityMatrixFlow({
                       <div className="flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-emerald-700" />
                         <h3 className="font-serif text-base sm:text-lg font-bold text-emerald-950">
-                          Strengths (Grassroots Advantages)
+                          {t("strengths")}
                         </h3>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -475,7 +568,7 @@ export default function FeasibilityMatrixFlow({
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5 text-[#8B2500]" />
                         <h3 className="font-serif text-base sm:text-lg font-bold text-[#4A1505]">
-                          Weaknesses (Operational Vulnerabilities)
+                          {t("weaknesses")}
                         </h3>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-100 text-red-800 border border-red-200">
@@ -500,7 +593,7 @@ export default function FeasibilityMatrixFlow({
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-antigravity-orange" />
                         <h3 className="font-serif text-base sm:text-lg font-bold text-amber-950">
-                          Opportunities (Market & Scheme Subsidies)
+                          {t("opportunities")}
                         </h3>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
@@ -525,7 +618,7 @@ export default function FeasibilityMatrixFlow({
                       <div className="flex items-center gap-2">
                         <ShieldAlert className="w-5 h-5 text-antigravity-navy" />
                         <h3 className="font-serif text-base sm:text-lg font-bold text-antigravity-navy">
-                          Threats & Climate/Supply Risks
+                          {t("threats")}
                         </h3>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-antigravity-navy/10 text-antigravity-navy border border-antigravity-navy/20">
@@ -553,7 +646,7 @@ export default function FeasibilityMatrixFlow({
                   {/* Card 1: Estimated Gross Margin */}
                   <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-4 sm:p-5 border border-antigravity-navy/10 shadow-elevated flex flex-col justify-between">
                     <span className="font-sans text-[10px] font-bold uppercase tracking-wider text-antigravity-navy/60 block mb-1.5">
-                      ESTIMATED GROSS MARGIN
+                      {t("grossMargin")}
                     </span>
                     <div className="flex items-baseline gap-2 mb-1.5">
                       <span className="font-serif text-3xl sm:text-4xl font-bold text-[#8B2500]">
@@ -570,7 +663,7 @@ export default function FeasibilityMatrixFlow({
                   {/* Card 2: Break-Even Timeline */}
                   <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-4 sm:p-5 border border-antigravity-navy/10 shadow-elevated flex flex-col justify-between">
                     <span className="font-sans text-[10px] font-bold uppercase tracking-wider text-antigravity-navy/60 block mb-1.5">
-                      BREAK-EVEN TIMELINE
+                      {t("breakEvenTimeline")}
                     </span>
                     <div className="mb-1.5">
                       <span className="font-serif text-3xl sm:text-4xl font-bold text-antigravity-navy">
@@ -735,7 +828,7 @@ export default function FeasibilityMatrixFlow({
                 {/* Competitive Landscape Comparison Cards */}
                 <div>
                   <h3 className="font-sans text-[10px] font-bold uppercase tracking-wider text-antigravity-navy/60 mb-2.5">
-                    COMPETITIVE LANDSCAPE COMPARISON
+                    {t("competitiveLandscape")}
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
@@ -822,7 +915,7 @@ export default function FeasibilityMatrixFlow({
       </main>
 
       {/* Bottom Sticky Step Navigation Bar */}
-      <footer className="w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 z-30 flex items-center justify-between gap-3">
+      <footer className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 z-30 flex items-center justify-between gap-3">
         {/* Previous Button */}
         <button
           onClick={() => setActiveSlide((prev) => Math.max(prev - 1, 1))}
@@ -830,8 +923,8 @@ export default function FeasibilityMatrixFlow({
           className="px-4 py-2 rounded-2xl bg-white/80 hover:bg-white backdrop-blur-md border border-antigravity-navy/15 text-xs font-semibold text-antigravity-charcoal hover:text-antigravity-orange transition-all shadow-subtle flex items-center gap-2 disabled:opacity-40 disabled:pointer-events-none"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Previous:</span>
-          <span>{activeSlide > 1 ? SECTIONS[activeSlide - 2].shortName : "Start"}</span>
+          <span className="hidden sm:inline">{t("previous")}:</span>
+          <span>{activeSlide > 1 ? sections[activeSlide - 2].shortName : "Start"}</span>
         </button>
 
         {/* Center Progress Text */}
@@ -839,7 +932,7 @@ export default function FeasibilityMatrixFlow({
           <span className="w-2 h-2 rounded-full bg-antigravity-orange" />
           <span>Slide {activeSlide} of 5</span>
           <span className="text-antigravity-navy/30">•</span>
-          <span className="hidden sm:inline">Sahaay Feasibility Matrix</span>
+          <span className="hidden sm:inline">Sahaay {t("feasibility")}</span>
         </div>
 
         {/* Next / Complete Button */}
@@ -848,7 +941,7 @@ export default function FeasibilityMatrixFlow({
             onClick={() => setActiveSlide((prev) => Math.min(prev + 1, 5))}
             className="px-5 py-2 rounded-2xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center gap-2"
           >
-            <span>Next: {SECTIONS[activeSlide].shortName}</span>
+            <span>{t("next")}: {sections[activeSlide].shortName}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         ) : (
@@ -860,7 +953,7 @@ export default function FeasibilityMatrixFlow({
                 title="Evaluate Loan Subsidies"
               >
                 <Calculator className="w-3.5 h-3.5" />
-                <span>Check Schemes</span>
+                <span>{t("checkSchemes")}</span>
               </button>
             )}
             {onProceedToDpr && (
@@ -870,7 +963,7 @@ export default function FeasibilityMatrixFlow({
                 title="Generate Bank-Ready DPR"
               >
                 <FileDown className="w-3.5 h-3.5" />
-                <span>Generate DPR</span>
+                <span>{t("generateDpr")}</span>
               </button>
             )}
             <button
@@ -878,7 +971,7 @@ export default function FeasibilityMatrixFlow({
               className="px-4 py-2 rounded-2xl bg-[#8B2500] hover:bg-[#721F00] text-white text-xs font-semibold tracking-wide transition-all shadow-md flex items-center gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>Complete Review</span>
+              <span>{t("completeReview")}</span>
             </button>
           </div>
         )}

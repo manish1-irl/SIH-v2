@@ -153,10 +153,24 @@ class FeasibilityEngine:
     ]
 
     @staticmethod
-    def calculate_feasibility(capital: float, business_idea: str, locality: str, state: str, demographics: Dict[str, Any]) -> FeasibilityScoreBreakdown:
+    def calculate_feasibility(
+        capital: float,
+        business_idea: str,
+        locality: str,
+        state: str,
+        demographics: Dict[str, Any],
+        project_cost: Optional[float] = None,
+    ) -> FeasibilityScoreBreakdown:
         loc_profile = LocationIntelligenceEngine.analyze_locality(locality, state)
-        capital_fit = min(int((capital / 75000.0) * 70), 95)
-        capital_fit = max(capital_fit, 40)
+        if project_cost is not None and float(project_cost) > 0:
+            cost = float(project_cost)
+            required_margin = cost * 0.10
+            promoter_ratio = min(capital / max(required_margin, 1.0), 1.5)
+            capital_fit = min(int(promoter_ratio * 75), 98)
+            capital_fit = max(capital_fit, 35)
+        else:
+            capital_fit = min(int((capital / 75000.0) * 70), 95)
+            capital_fit = max(capital_fit, 40)
 
         # Dynamic market score grounded in local population and economic driver
         base_market = 78

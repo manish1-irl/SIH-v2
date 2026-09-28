@@ -71,7 +71,7 @@ interface HomePageViewProps {
   isRecording: boolean;
   onStartRecording: () => void;
   onStopRecording: () => void;
-  onSearchSubmit: (query: string, attachments?: ChatAttachment[]) => void;
+  onSearchSubmit: (query: string, attachments?: ChatAttachment[], isVoice?: boolean) => void;
   onSelectCapability: (capability: "schemes" | "feasibility" | "cluster" | "dpr", promptText: string) => void;
   onNavigate: (view: "home" | "feasibility" | "schemes" | "explore" | "dashboard") => void;
   messages: HomeChatMessage[];
@@ -86,7 +86,10 @@ interface HomePageViewProps {
   activeCapital?: number;
   autoSpeak?: boolean;
   onToggleAutoSpeak?: () => void;
+  onOpenProfile?: () => void;
 }
+
+import { getTranslation } from "@/lib/translations";
 
 export default function HomePageView({
   currentUser,
@@ -107,11 +110,12 @@ export default function HomePageView({
   onConfirmAndSubmitDpr,
   onResetChat,
   isDprConfirmed = false,
-  activeBusinessIdea = "Dairy",
-  activeLocality = "Bassi",
-  activeCapital = 100000,
+  activeBusinessIdea = "",
+  activeLocality = "",
+  activeCapital = 0,
   autoSpeak = true,
   onToggleAutoSpeak,
+  onOpenProfile,
 }: HomePageViewProps) {
   const [inputText, setInputText] = useState("");
   const [showLangMenu, setShowLangMenu] = useState(false);
@@ -125,6 +129,7 @@ export default function HomePageView({
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
 
+  const t = (key: string) => getTranslation(language, key);
   const selectedLang = languages.find((l) => l.code === language) || languages[0];
 
   // Stop speech recognition and synthesis on unmount
@@ -150,13 +155,15 @@ export default function HomePageView({
     }
   }, [messages, isProcessing]);
 
-  // Auto-speak new agent responses when enabled
+  // Auto-speak new agent responses ONLY when the person gives their input in speech pattern
   useEffect(() => {
     if (isInitialMount.current) return;
     if (messages.length > 0 && autoSpeak) {
       const lastMsg = messages[messages.length - 1];
-      if (lastMsg.role === "agent") {
-        handleToggleSpeak(lastMsg);
+      if (lastMsg.role === "agent" && lastMsg.isVoice) {
+        if (!lastMsg.audioBase64) {
+          handleToggleSpeak(lastMsg);
+        }
       }
     }
   }, [messages.length]);
@@ -222,7 +229,8 @@ export default function HomePageView({
 
     onSearchSubmit(
       text || (attachments.length > 0 ? `Uploaded ${attachments.length} attachment(s): ${attachments.map((a) => a.name).join(", ")}` : ""),
-      attachments
+      attachments,
+      false
     );
     setInputText("");
     setAttachments([]);
@@ -272,7 +280,7 @@ export default function HomePageView({
         setInputText(transcript);
         if (isFinal && transcript.trim()) {
           setIsVoiceListening(false);
-          onSearchSubmit(transcript.trim(), attachments);
+          onSearchSubmit(transcript.trim(), attachments, true);
           setInputText("");
           setAttachments([]);
         }
@@ -321,30 +329,30 @@ export default function HomePageView({
         </button>
 
         {/* Center Nav Links (Desktop) */}
-        <nav className="hidden md:flex items-center gap-5 sm:gap-7 mx-auto">
+        <nav className="hidden md:flex items-center gap-6 sm:gap-8 mx-auto">
           <button
             onClick={() => onNavigate("home")}
-            className="font-sans text-xs sm:text-sm font-semibold tracking-wide text-antigravity-charcoal hover:text-antigravity-orange transition-colors relative py-1 border-b-2 border-antigravity-navy drop-shadow-sm cursor-pointer"
+            className="font-sans text-xs sm:text-sm font-semibold tracking-wide text-neutral-900 border-b-2 border-neutral-900 pb-0.5 transition-colors cursor-pointer"
           >
-            Home
+            {t("home")}
           </button>
           <button
             onClick={() => onNavigate("feasibility")}
-            className="font-sans text-xs sm:text-sm font-medium tracking-wide text-antigravity-charcoal/80 hover:text-antigravity-orange transition-colors py-1 drop-shadow-sm cursor-pointer"
+            className="font-sans text-xs sm:text-sm font-medium tracking-wide text-neutral-700 hover:text-neutral-950 transition-colors py-1 cursor-pointer"
           >
-            Feasibility
+            {t("feasibility")}
           </button>
           <button
             onClick={() => onNavigate("schemes")}
-            className="font-sans text-xs sm:text-sm font-medium tracking-wide text-antigravity-charcoal/80 hover:text-antigravity-orange transition-colors py-1 drop-shadow-sm cursor-pointer"
+            className="font-sans text-xs sm:text-sm font-medium tracking-wide text-neutral-700 hover:text-neutral-950 transition-colors py-1 cursor-pointer"
           >
-            Scheme Calculator
+            {t("schemeCalculator")}
           </button>
           <button
             onClick={() => onNavigate("explore")}
-            className="font-sans text-xs sm:text-sm font-medium tracking-wide text-antigravity-charcoal/80 hover:text-antigravity-orange transition-colors py-1 drop-shadow-sm cursor-pointer"
+            className="font-sans text-xs sm:text-sm font-medium tracking-wide text-neutral-700 hover:text-neutral-950 transition-colors py-1 cursor-pointer"
           >
-            Explore
+            {t("explore")}
           </button>
           {isDprConfirmed && (
             <button
@@ -352,24 +360,29 @@ export default function HomePageView({
               className="font-sans text-xs sm:text-sm font-bold tracking-wide text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 px-3 py-1 rounded-full transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <LayoutDashboard className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Dashboard</span>
+              <span>{t("dashboard")}</span>
             </button>
           )}
         </nav>
 
-        {/* User Info & Logout (Right) */}
+        {/* User Info & Profile & Logout (Right) */}
         <div className="flex items-center gap-2 sm:gap-2.5 z-40">
           {currentUser && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-md border border-white/60 text-xs font-medium text-antigravity-navy shadow-subtle">
-              <div className="w-2 h-2 rounded-full bg-antigravity-sage animate-pulse" />
-              <span className="max-w-[120px] truncate">{currentUser.full_name}</span>
-            </div>
+            <button
+              onClick={onOpenProfile}
+              type="button"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-[#EAE2D2] text-xs font-semibold text-neutral-800 shadow-[0_4px_16px_rgba(180,165,140,0.22)] transition-all cursor-pointer hover:shadow-md"
+              title={t("profile")}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className="max-w-[130px] truncate">{currentUser.full_name || "User"}</span>
+            </button>
           )}
 
           <button
             onClick={onLogout}
-            className="p-2 rounded-xl bg-white/70 hover:bg-white/95 backdrop-blur-md text-red-600 hover:text-red-700 transition-all border border-white/50 shadow-subtle cursor-pointer"
-            title="Logout"
+            className="p-2 rounded-xl bg-white/90 hover:bg-white backdrop-blur-md text-neutral-600 hover:text-red-600 transition-all border border-[#EAE2D2] shadow-[0_4px_16px_rgba(180,165,140,0.22)] cursor-pointer"
+            title={t("logout")}
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -377,22 +390,22 @@ export default function HomePageView({
       </header>
 
       {/* Main Center Area: Hero + Input Bar + 4 Pills + INLINE CHAT STREAM ON HOMEPAGE */}
-      <main className="flex-1 flex flex-col items-center justify-start px-4 sm:px-6 pt-4 sm:pt-6 pb-12 z-20 w-full max-w-4xl mx-auto">
+      <main className="flex-1 flex flex-col items-center justify-start px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 pb-12 z-20 w-full max-w-5xl mx-auto">
         <div className="w-full flex flex-col items-center text-center">
           {/* Brand Title */}
-          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight drop-shadow-xs select-none mb-2 text-[#0A2540]">
-            Sahaay
+          <h1 className="font-serif text-5xl sm:text-6xl font-bold tracking-tight select-none mb-2 text-[#0A2540]">
+            {t("brandTitle")}
           </h1>
 
-          <p className="font-sans text-xs sm:text-sm text-[#2B1C03]/85 max-w-md font-medium mb-5 drop-shadow-xs">
-            Hyper-Local AI Business Advisor for Rural & Semi-Urban India
+          <p className="font-sans text-xs sm:text-sm text-neutral-600 max-w-md font-medium mb-6">
+            {t("brandSubtitle")}
           </p>
 
-          {/* Primary Interaction Pill (Search / Voice / Intake) with high z-index and luminous frosted glass */}
-          <div className="w-full max-w-2xl bg-white/90 backdrop-blur-2xl rounded-3xl sm:rounded-full px-2.5 py-2 sm:px-4 sm:py-3 shadow-[0_16px_45px_rgba(10,37,64,0.12)] border border-white/90 flex flex-col gap-2 transition-all duration-300 focus-within:ring-2 focus-within:ring-[#87A96B]/60 focus-within:border-[#87A96B]/40 relative z-40">
+          {/* Primary Interaction Pill (Search / Voice / Intake) */}
+          <div className="w-full max-w-3xl sm:max-w-4xl bg-white/95 backdrop-blur-xl rounded-full px-3 py-2 sm:px-5 sm:py-2.5 shadow-[0_12px_32px_rgba(180,165,140,0.28),0_4px_12px_rgba(180,165,140,0.16)] border border-[#EAE2D2] flex flex-col gap-2 transition-all duration-300 focus-within:ring-2 focus-within:ring-[#0A2540]/20 relative z-40">
             {/* Attachment preview strip if files or images are selected */}
             {attachments.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 px-2 pt-1 pb-1.5 border-b border-antigravity-navy/10">
+              <div className="flex flex-wrap items-center gap-1.5 px-2 pt-1 pb-1.5 border-b border-neutral-200">
                 {attachments.map((att) => (
                   <div
                     key={att.id}
@@ -433,10 +446,10 @@ export default function HomePageView({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all flex items-center justify-center shrink-0 shadow-xs cursor-pointer ${
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all flex items-center justify-center shrink-0 cursor-pointer ${
                   attachments.length > 0
                     ? "bg-emerald-600 text-white hover:bg-emerald-700 ring-2 ring-emerald-300"
-                    : "bg-antigravity-navy/5 hover:bg-antigravity-orange hover:text-white text-antigravity-navy"
+                    : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600"
                 }`}
                 title="Attach images, documents or DPR spreadsheets"
                 aria-label="Attach images or files"
@@ -453,26 +466,26 @@ export default function HomePageView({
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isVoiceListening
-                    ? `Listening in ${selectedLang.native}... Speak clearly`
-                    : `Ask about any business in ${selectedLang.native}...`
+                    ? `${t("listeningIn")} (${selectedLang.native})`
+                    : t("chatPlaceholder")
                 }
-                className="flex-1 min-w-0 bg-transparent font-sans text-xs sm:text-sm text-antigravity-charcoal placeholder:text-antigravity-navy/40 focus:outline-none px-1"
+                className="flex-1 min-w-0 bg-transparent font-sans text-xs sm:text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none px-2"
               />
 
-              {/* Language Selector Pill with high z-index and solid background */}
+              {/* Language Selector Pill */}
               <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowLangMenu(!showLangMenu)}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full bg-antigravity-cream/80 hover:bg-antigravity-cream transition-all border border-antigravity-navy/15 text-antigravity-navy cursor-pointer shrink-0"
-                  title="Change Language"
-                  aria-label="Change Language"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-neutral-100/90 hover:bg-neutral-200/80 transition-all border border-neutral-200/80 text-neutral-700 cursor-pointer shrink-0"
+                  title={t("appLanguage")}
+                  aria-label={t("appLanguage")}
                 >
-                  <Languages className="w-3.5 h-3.5 text-antigravity-navy/70 shrink-0" />
+                  <Languages className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
                   <span className="font-sans text-[11px] font-semibold hidden sm:inline truncate max-w-[65px]">
                     {selectedLang.native}
                   </span>
-                  <ChevronDown className="w-3 h-3 text-antigravity-navy/50 shrink-0" />
+                  <ChevronDown className="w-3 h-3 text-neutral-400 shrink-0" />
                 </button>
 
                 {showLangMenu && (
@@ -483,9 +496,9 @@ export default function HomePageView({
                       onClick={() => setShowLangMenu(false)}
                     />
 
-                    <div className="absolute right-0 top-full mt-2 bg-white border border-antigravity-navy/15 rounded-2xl shadow-2xl py-2 w-52 sm:w-56 z-50 max-h-64 sm:max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150 text-left">
-                      <div className="px-3 py-1 border-b border-antigravity-navy/10 text-[10px] font-bold text-antigravity-navy/60 uppercase tracking-wider">
-                        Select Language ({languages.length})
+                    <div className="absolute right-0 top-full mt-2 bg-white border border-neutral-200 rounded-2xl shadow-2xl py-2 w-52 sm:w-56 z-50 max-h-64 sm:max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+                      <div className="px-3 py-1 border-b border-neutral-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
+                        {t("selectLanguage")} ({languages.length})
                       </div>
                       {languages.map((lang) => (
                         <button
@@ -495,16 +508,16 @@ export default function HomePageView({
                             onLanguageChange(lang.code);
                             setShowLangMenu(false);
                           }}
-                          className={`w-full text-left px-3.5 py-2 font-sans text-xs flex items-center justify-between hover:bg-antigravity-cream transition-all cursor-pointer ${
+                          className={`w-full text-left px-3.5 py-2 font-sans text-xs flex items-center justify-between hover:bg-neutral-50 transition-all cursor-pointer ${
                             language === lang.code
-                              ? "text-antigravity-orange font-semibold bg-antigravity-orange/5"
-                              : "text-antigravity-charcoal/85"
+                              ? "text-[#D96B27] font-semibold bg-[#D96B27]/5"
+                              : "text-neutral-800"
                           }`}
                         >
                           <span className="font-medium">{lang.native}</span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-antigravity-navy/40 text-[10px]">{lang.name}</span>
-                            {language === lang.code && <Check className="w-3.5 h-3.5 text-antigravity-orange" />}
+                            <span className="text-neutral-400 text-[10px]">{lang.name}</span>
+                            {language === lang.code && <Check className="w-3.5 h-3.5 text-[#D96B27]" />}
                           </div>
                         </button>
                       ))}
@@ -518,7 +531,7 @@ export default function HomePageView({
                 <button
                   type="button"
                   onClick={handleSend}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-antigravity-orange hover:bg-antigravity-navy text-white flex items-center justify-center transition-all shrink-0 shadow-sm cursor-pointer"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#D96B27] hover:bg-[#0A2540] text-white flex items-center justify-center transition-all shrink-0 shadow-sm cursor-pointer"
                   title="Send inquiry"
                 >
                   <Send className="w-4 h-4" />
@@ -530,7 +543,7 @@ export default function HomePageView({
                   className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all shrink-0 shadow-sm cursor-pointer ${
                     isVoiceListening
                       ? "bg-red-500 text-white animate-pulse shadow-md ring-2 ring-red-300"
-                      : "bg-antigravity-navy text-white hover:bg-antigravity-orange"
+                      : "bg-[#0A2540] text-white hover:bg-[#162A45]"
                   }`}
                   title={isVoiceListening ? "Listening... Click to stop" : `Speak in ${selectedLang.name} (${selectedLang.native})`}
                 >
@@ -563,7 +576,7 @@ export default function HomePageView({
                       setSpeechNotice(null);
                       inputRef.current?.focus();
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-antigravity-navy text-white text-[10px] font-semibold hover:bg-antigravity-orange transition-colors cursor-pointer shadow-xs"
+                    className="px-2.5 py-1 rounded-lg bg-[#0A2540] text-white text-[10px] font-semibold hover:bg-[#D96B27] transition-colors cursor-pointer shadow-xs"
                   >
                     Type Message Instead
                   </button>
@@ -582,97 +595,112 @@ export default function HomePageView({
             )}
           </div>
 
-          {/* 4 Feature Action Pills with Vibrant Distinct Accents & Glassmorphism */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-3.5 w-full max-w-2xl relative z-10">
-            <button
-              onClick={() =>
-                onSelectCapability(
-                  "schemes",
-                  `Calculate verified government scheme subsidies and bank loan eligibility for my ${activeBusinessIdea} business in ${activeLocality}.`
-                )
-              }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/85 hover:bg-emerald-50/90 backdrop-blur-md border border-emerald-200/80 hover:border-emerald-400 text-emerald-950 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
-            >
-              <Calculator className="w-3.5 h-3.5 text-emerald-600 group-hover:text-emerald-700 transition-colors" />
-              <span className="font-sans text-xs font-semibold tracking-wide">
-                Scheme Calculator
-              </span>
-            </button>
+          {/* 4 Feature Action Pills Matching Reference Design */}
+          <div className="flex flex-col items-center gap-2.5 mt-4 w-full max-w-3xl sm:max-w-4xl relative z-10">
+            <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+              <button
+                onClick={() => {
+                  const ideaStr = activeBusinessIdea ? `for ${activeBusinessIdea}` : "for my business";
+                  const locStr = activeLocality ? ` in ${activeLocality}` : "";
+                  onSelectCapability(
+                    "schemes",
+                    `Calculate verified government scheme subsidies and bank loan eligibility ${ideaStr}${locStr}.`
+                  );
+                }}
+                className="px-4 py-2 rounded-full bg-white/95 hover:bg-white backdrop-blur-md border border-[#EAE3D2] hover:border-neutral-300 text-neutral-800 shadow-[0_4px_16px_rgba(180,165,140,0.22)] hover:shadow-[0_6px_20px_rgba(180,165,140,0.30)] hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-700 transition-colors" />
+                <span className="font-sans text-xs font-semibold tracking-wide">
+                  {t("schemeCalculator")}
+                </span>
+              </button>
 
-            <button
-              onClick={() =>
-                onSelectCapability(
-                  "feasibility",
-                  `Evaluate hyper-local market feasibility, demand signals, and competition density for ${activeBusinessIdea} in ${activeLocality}.`
-                )
-              }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/85 hover:bg-blue-50/90 backdrop-blur-md border border-blue-200/80 hover:border-blue-400 text-blue-950 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
-            >
-              <Compass className="w-3.5 h-3.5 text-blue-600 group-hover:text-blue-700 transition-colors" />
-              <span className="font-sans text-xs font-semibold tracking-wide">
-                Feasibility Matrix
-              </span>
-            </button>
+              <button
+                onClick={() => {
+                  const ideaStr = activeBusinessIdea ? `for ${activeBusinessIdea}` : "for my business";
+                  const locStr = activeLocality ? ` in ${activeLocality}` : "";
+                  onSelectCapability(
+                    "feasibility",
+                    `Evaluate hyper-local market feasibility, demand signals, and competition density ${ideaStr}${locStr}.`
+                  );
+                }}
+                className="px-4 py-2 rounded-full bg-white/95 hover:bg-white backdrop-blur-md border border-[#EAE3D2] hover:border-neutral-300 text-neutral-800 shadow-[0_4px_16px_rgba(180,165,140,0.22)] hover:shadow-[0_6px_20px_rgba(180,165,140,0.30)] hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
+              >
+                <div className="w-3.5 h-3.5 rounded-full border border-neutral-500 flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-neutral-700" />
+                </div>
+                <span className="font-sans text-xs font-semibold tracking-wide">
+                  {t("feasibility")}
+                </span>
+              </button>
 
-            <button
-              onClick={() =>
-                onSelectCapability(
-                  "cluster",
-                  `Identify local economic clusters, nearby FPOs, and supply chain partners for ${activeBusinessIdea} around ${activeLocality}.`
-                )
-              }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/85 hover:bg-indigo-50/90 backdrop-blur-md border border-indigo-200/80 hover:border-indigo-400 text-indigo-950 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
-            >
-              <Network className="w-3.5 h-3.5 text-indigo-600 group-hover:text-indigo-700 transition-colors" />
-              <span className="font-sans text-xs font-semibold tracking-wide">
-                Cluster Network
-              </span>
-            </button>
+              <button
+                onClick={() => {
+                  const ideaStr = activeBusinessIdea ? `for ${activeBusinessIdea}` : "for my business";
+                  const locStr = activeLocality ? ` around ${activeLocality}` : "";
+                  onSelectCapability(
+                    "cluster",
+                    `Identify local economic clusters, nearby FPOs, and supply chain partners ${ideaStr}${locStr}.`
+                  );
+                }}
+                className="px-4 py-2 rounded-full bg-white/95 hover:bg-white backdrop-blur-md border border-[#EAE3D2] hover:border-neutral-300 text-neutral-800 shadow-[0_4px_16px_rgba(180,165,140,0.22)] hover:shadow-[0_6px_20px_rgba(180,165,140,0.30)] hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
+              >
+                <Network className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-700 transition-colors" />
+                <span className="font-sans text-xs font-semibold tracking-wide">
+                  {t("clusterNetwork")}
+                </span>
+              </button>
+            </div>
 
-            <button
-              onClick={() =>
-                onSelectCapability(
-                  "dpr",
-                  `Generate and download a bank-ready Detailed Project Report (DPR) for ${activeBusinessIdea} in ${activeLocality} with margin money ₹${activeCapital}.`
-                )
-              }
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/85 hover:bg-amber-50/90 backdrop-blur-md border border-amber-200/80 hover:border-amber-400 text-amber-950 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
-            >
-              <FileDown className="w-3.5 h-3.5 text-[#D96B27] group-hover:text-amber-700 transition-colors" />
-              <span className="font-sans text-xs font-semibold tracking-wide">
-                Download DPR
-              </span>
-            </button>
+            <div>
+              <button
+                onClick={() => {
+                  const ideaStr = activeBusinessIdea ? `for ${activeBusinessIdea}` : "for my proposed business";
+                  const locStr = activeLocality ? ` in ${activeLocality}` : "";
+                  const capStr = activeCapital && activeCapital > 0 ? ` with margin money ₹${activeCapital.toLocaleString("en-IN")}` : "";
+                  onSelectCapability(
+                    "dpr",
+                    `Generate and download a bank-ready Detailed Project Report (DPR) ${ideaStr}${locStr}${capStr}.`
+                  );
+                }}
+                className="px-4 py-2 rounded-full bg-white/95 hover:bg-white backdrop-blur-md border border-[#EAE3D2] hover:border-neutral-300 text-neutral-800 shadow-[0_4px_16px_rgba(180,165,140,0.22)] hover:shadow-[0_6px_20px_rgba(180,165,140,0.30)] hover:-translate-y-0.5 transition-all flex items-center gap-2 group cursor-pointer"
+              >
+                <FileDown className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-700 transition-colors" />
+                <span className="font-sans text-xs font-semibold tracking-wide">
+                  {t("dprDownloadBtn")}
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* INLINE CHAT CONVERSATION DIRECTLY ON HOMEPAGE (NO REDIRECT TO ANOTHER PAGE) */}
           {messages.length > 0 && (
-            <div className="w-full max-w-2xl mt-6 space-y-4 max-h-[50vh] overflow-y-auto pr-1 text-left pb-4 relative z-10">
+            <div className="w-full max-w-3xl sm:max-w-4xl mt-6 space-y-4 max-h-[54vh] sm:max-h-[58vh] overflow-y-auto pr-1 text-left pb-4 relative z-10">
               <div className="flex items-center justify-between px-1 pb-1 border-b border-antigravity-navy/10 text-[11px] text-antigravity-navy/60">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={onToggleAutoSpeak}
-                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full border transition-all cursor-pointer text-[10px] font-medium ${
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all cursor-pointer text-[10px] font-medium ${
                       autoSpeak
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs"
+                        ? "bg-[#EAF5EC] text-[#2D6A4F] border-[#CDE5D4] shadow-xs"
                         : "bg-neutral-100 text-neutral-600 border-neutral-300"
                     }`}
                     title={autoSpeak ? "Auto-speak is ON (Click to mute auto-speech)" : "Auto-speak is OFF (Click to turn on auto-speech)"}
                   >
-                    {autoSpeak ? <Volume2 className="w-3 h-3 text-emerald-600" /> : <VolumeX className="w-3 h-3 text-neutral-500" />}
-                    <span>Auto Voice: {autoSpeak ? "ON" : "OFF"}</span>
+                    {autoSpeak ? <Volume2 className="w-3 h-3 text-[#2D6A4F]" /> : <VolumeX className="w-3 h-3 text-neutral-500" />}
+                    <span>{t("autoVoice")}: {autoSpeak ? "ON" : "OFF"}</span>
                   </button>
                 </div>
                 {onResetChat && (
                   <button
                     type="button"
                     onClick={onResetChat}
-                    className="flex items-center gap-1 text-antigravity-navy/50 hover:text-antigravity-orange text-[10px] cursor-pointer"
+                    className="flex items-center gap-1 text-neutral-500 hover:text-neutral-800 text-[10px] font-medium cursor-pointer"
                     title="Reset conversation"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    <span>Reset Chat</span>
+                    <span>{t("resetChat")}</span>
                   </button>
                 )}
               </div>
@@ -681,17 +709,17 @@ export default function HomePageView({
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className="max-w-[88%]">
                     <div className={`flex items-start gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs ${
-                        msg.role === "user" ? "bg-antigravity-orange text-white" : "bg-antigravity-navy text-white shadow-sm"
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 text-xs ${
+                        msg.role === "user" ? "bg-[#D96B27] text-white" : "bg-[#0A2540] text-white shadow-sm"
                       }`}>
                         {msg.role === "user" ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
                       </div>
 
                       <div className="w-full">
-                        <div className={`p-4 rounded-2xl ${
+                        <div className={`p-4 sm:p-5 rounded-3xl ${
                           msg.role === "user"
-                            ? "bg-antigravity-navy text-white rounded-tr-sm shadow-md"
-                            : "bg-white/95 backdrop-blur-xl border border-antigravity-navy/10 text-antigravity-charcoal rounded-tl-sm shadow-elevated"
+                            ? "bg-[#0A2540] text-white rounded-tr-sm shadow-md"
+                            : "bg-white/95 backdrop-blur-xl border border-[#ECE5D6] text-neutral-800 rounded-tl-sm shadow-[0_8px_24px_rgba(180,165,140,0.22)]"
                         }`}>
                           <p className="font-sans text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
 
@@ -708,14 +736,14 @@ export default function HomePageView({
                                     />
                                   ) : (
                                     <div
-                                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs ${
+                                      className={`flex items-center gap-2 p-2 rounded-lg text-xs ${
                                         msg.role === "user"
-                                          ? "bg-white/10 border-white/20 text-white"
-                                          : "bg-neutral-100 border-neutral-200 text-neutral-800"
+                                          ? "bg-white/10 border border-white/20 text-white"
+                                          : "bg-black/5 border border-black/10 text-neutral-800"
                                       }`}
                                     >
-                                      <Paperclip className="w-4 h-4 shrink-0 opacity-80" />
-                                      <span className="font-medium truncate">{att.name}</span>
+                                      <Paperclip className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                                      <span className="font-medium truncate max-w-[180px]">{att.name}</span>
                                       <span className="opacity-75 text-[10px]">({att.size})</span>
                                     </div>
                                   )}
@@ -812,9 +840,9 @@ export default function HomePageView({
 
       {/* Footer Info */}
       <footer className="w-full max-w-7xl mx-auto px-6 py-4 flex items-center justify-center z-20">
-        <div className="flex items-center gap-2 text-antigravity-charcoal/70 font-sans text-[11px] font-medium bg-white/70 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/50 shadow-subtle">
-          <Sparkles className="w-3 h-3 text-antigravity-sage" />
-          <span>Deterministic Government Scheme Verification • Zero Hallucinations</span>
+        <div className="flex items-center gap-2 text-neutral-600 font-sans text-[11px] font-medium bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full border border-[#EAE2D2] shadow-[0_4px_16px_rgba(180,165,140,0.20)]">
+          <Sparkles className="w-3 h-3 text-emerald-600" />
+          <span>{t("zeroHallucinations")}</span>
         </div>
       </footer>
 
@@ -825,28 +853,28 @@ export default function HomePageView({
           className="flex flex-col items-center gap-0.5 text-antigravity-orange font-bold text-[10px] cursor-pointer"
         >
           <Home className="w-4 h-4" />
-          <span>Home</span>
+          <span>{t("home")}</span>
         </button>
         <button
           onClick={() => onNavigate("feasibility")}
           className="flex flex-col items-center gap-0.5 text-antigravity-charcoal/70 hover:text-antigravity-orange font-medium text-[10px] cursor-pointer"
         >
           <Compass className="w-4 h-4" />
-          <span>Feasibility</span>
+          <span>{t("feasibility")}</span>
         </button>
         <button
           onClick={() => onNavigate("schemes")}
           className="flex flex-col items-center gap-0.5 text-antigravity-charcoal/70 hover:text-antigravity-orange font-medium text-[10px] cursor-pointer"
         >
           <Calculator className="w-4 h-4" />
-          <span>Schemes</span>
+          <span>{t("schemeCalculator")}</span>
         </button>
         <button
           onClick={() => onNavigate("explore")}
           className="flex flex-col items-center gap-0.5 text-antigravity-charcoal/70 hover:text-antigravity-orange font-medium text-[10px] cursor-pointer"
         >
           <Network className="w-4 h-4" />
-          <span>Cluster</span>
+          <span>{t("clusterNetwork")}</span>
         </button>
         {isDprConfirmed && (
           <button
@@ -854,7 +882,7 @@ export default function HomePageView({
             className="flex flex-col items-center gap-0.5 text-emerald-800 font-bold text-[10px] cursor-pointer"
           >
             <LayoutDashboard className="w-4 h-4 text-emerald-700" />
-            <span>Dashboard</span>
+            <span>{t("dashboard")}</span>
           </button>
         )}
       </nav>

@@ -60,23 +60,10 @@ export function setupRecaptcha(containerId: string): RecaptchaVerifier {
   return verifier;
 }
 
-// Send OTP via Firebase or fallback demo mode if live SMS quota/keys are in sandbox
 export async function sendOtp(
   phoneNumber: string,
   verifier: RecaptchaVerifier
-): Promise<ConfirmationResult | { isMock: true; confirmationCode: string }> {
+): Promise<ConfirmationResult> {
   const formattedPhone = phoneNumber.startsWith("+") ? phoneNumber : `+91${phoneNumber.replace(/\D/g, "")}`;
-
-  try {
-    const confirmation = await signInWithPhoneNumber(auth, formattedPhone, verifier);
-    return confirmation;
-  } catch (error: any) {
-    console.warn("Firebase Phone Auth returned:", error?.message || error);
-    // Development / Sandbox mode: if Firebase API key is unconfigured or rate-limited during demo,
-    // provide seamless verification with code 123456 so user testing is never blocked
-    return {
-      isMock: true,
-      confirmationCode: "123456",
-    };
-  }
+  return await signInWithPhoneNumber(auth, formattedPhone, verifier);
 }

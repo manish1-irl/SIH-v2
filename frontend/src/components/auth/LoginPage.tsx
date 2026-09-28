@@ -15,27 +15,42 @@ import {
 } from "lucide-react";
 import { setupRecaptcha, sendOtp } from "@/lib/firebase";
 import { syncUserProfile, UserProfile } from "@/lib/supabase";
+import { SUPPORTED_LANGUAGES, getTranslation, LanguageOption } from "@/lib/translations";
 
 interface LoginPageProps {
-  onLoginSuccess: (user: UserProfile) => void;
+  onLoginSuccess: (user: UserProfile, languageCode?: string) => void;
+  currentLanguage?: string;
+  onLanguageChange?: (langCode: string) => void;
 }
 
-const LANGUAGES = [
-  { code: "en", label: "English", flag: "🌐" },
-  { code: "hi", label: "हिंदी (Hindi)", flag: "🇮🇳" },
-  { code: "pa", label: "ਪੰਜਾਬੀ (Punjabi)", flag: "🇮🇳" },
-  { code: "gu", label: "ગુજરાતી (Gujarati)", flag: "🇮🇳" },
-  { code: "mr", label: "मराठी (Marathi)", flag: "🇮🇳" },
-  { code: "bn", label: "বাংলা (Bengali)", flag: "🇮🇳" },
-  { code: "ta", label: "தமிழ் (Tamil)", flag: "🇮🇳" },
-];
-
-export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
+export default function LoginPage({ onLoginSuccess, currentLanguage = "hi", onLanguageChange }: LoginPageProps) {
   // Form state
   const [fullName, setFullName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>(() => {
+    return SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage) || SUPPORTED_LANGUAGES[0];
+  });
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (currentLanguage) {
+      const match = SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage);
+      if (match) setSelectedLanguage(match);
+    }
+  }, [currentLanguage]);
+
+  const handleSelectLanguage = (lang: LanguageOption) => {
+    setSelectedLanguage(lang);
+    setIsLangDropdownOpen(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sahaay_language", lang.code);
+    }
+    if (onLanguageChange) {
+      onLanguageChange(lang.code);
+    }
+  };
+
+  const t = (key: string) => getTranslation(selectedLanguage.code, key);
 
   // OTP State Machine: 'input' -> 'otp' -> 'success'
   const [step, setStep] = useState<"input" | "otp">("input");
@@ -91,7 +106,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       setCanResend(false);
       setStatusMessage({
         type: "info",
-        text: "OTP sent! For demo/test mode, you can also use 123456.",
+        text: `6-digit verification code sent to +91 ${cleanMobile}.`,
       });
 
       // Auto-focus the first OTP input
@@ -100,13 +115,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       }, 150);
     } catch (err: any) {
       console.error("OTP send error:", err);
-      // Fallback seamlessly so review/demo is never interrupted
-      setStep("otp");
-      setTimerSeconds(30);
-      setCanResend(false);
       setStatusMessage({
-        type: "info",
-        text: "Test verification code 123456 is active for demo access.",
+        type: "error",
+        text: "Could not send verification SMS. Please check your mobile number and network connection, then try again.",
       });
     } finally {
       setIsLoading(false);
@@ -170,27 +181,14 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const cleanMobile = mobileNumber.replace(/\D/g, "");
       const fullPhone = `+91${cleanMobile}`;
 
-      if (confirmationResultRef.current && typeof confirmationResultRef.current.confirm === "function") {
-        try {
-          await confirmationResultRef.current.confirm(enteredCode);
-          isVerified = true;
-        } catch (firebaseErr) {
-          // Check if user entered demo test code
-          if (enteredCode === "123456") {
-            isVerified = true;
-          } else {
-            throw new Error("Invalid verification code. Please check and retry.");
-          }
-        }
-      } else {
-        // Mock / Sandbox mode fallback
-        if (enteredCode === "123456" || enteredCode.length === 6) {
-          isVerified = true;
-        }
+      if (!confirmationResultRef.current || typeof confirmationResultRef.current.confirm !== "function") {
+        throw new Error("Verification session not found or expired. Please request a new OTP.");
       }
+      await confirmationResultRef.current.confirm(enteredCode);
+      isVerified = true;
 
       if (isVerified) {
-        setStatusMessage({ type: "success", text: "Verification successful! Syncing profile with Supabase..." });
+        setStatusMessage({ type: "success", text: "Verification successful! Signing in..." });
 
         // 2. Supabase Sync: Upsert user login credentials and profile
         const userProfile: UserProfile = {
@@ -205,7 +203,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         // Transition to platform
         setTimeout(() => {
-          onLoginSuccess(userProfile);
+          onLoginSuccess(userProfile, selectedLanguage.code);
         }, 600);
       }
     } catch (err: any) {
@@ -225,43 +223,16 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       <div id="recaptcha-container"></div>
 
       {/* Top Header Navigation */}
-      <header className="w-full max-w-7xl mx-auto px-6 sm:px-8 py-5 flex items-center justify-between z-20">
-        {/* Brand Logo & Name */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-            <Image
-              src="/sahaay-logo.png"
-              alt="Sahaay Logo"
-              width={80}
-              height={80}
-              className="object-contain drop-shadow-xs"
-              priority
-            />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-serif font-bold text-2xl text-antigravity-navy tracking-tight drop-shadow-xs">
-                Sahaay
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 tracking-wide uppercase">
-                AI
-              </span>
-            </div>
-            <span className="font-sans text-[10px] text-emerald-800 font-semibold block leading-none">
-              MSME Business Advisory
-            </span>
-          </div>
-        </div>
-
+      <header className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex items-center justify-end z-20">
         {/* Language Selector Dropdown */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/85 hover:bg-white backdrop-blur-md border border-white/80 text-xs font-semibold text-antigravity-navy shadow-xs transition-all"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/85 hover:bg-white backdrop-blur-md border border-white/80 text-xs font-semibold text-antigravity-navy shadow-xs transition-all cursor-pointer"
           >
             <Globe className="w-3.5 h-3.5 text-emerald-700" />
-            <span>{selectedLanguage.label}</span>
+            <span>{selectedLanguage.native}</span>
             <ChevronDown className="w-3 h-3 text-antigravity-navy/50" />
           </button>
 
@@ -271,15 +242,12 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 className="fixed inset-0 z-40"
                 onClick={() => setIsLangDropdownOpen(false)}
               />
-              <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-white border border-antigravity-navy/15 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                {LANGUAGES.map((lang) => (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-antigravity-navy/15 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 max-h-72 overflow-y-auto">
+                {SUPPORTED_LANGUAGES.map((lang) => (
                   <button
                     key={lang.code}
                     type="button"
-                    onClick={() => {
-                      setSelectedLanguage(lang);
-                      setIsLangDropdownOpen(false);
-                    }}
+                    onClick={() => handleSelectLanguage(lang)}
                     className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
                       selectedLanguage.code === lang.code
                         ? "bg-antigravity-navy/10 text-antigravity-navy font-bold"
@@ -288,7 +256,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   >
                     <span className="flex items-center gap-2">
                       <span>{lang.flag}</span>
-                      <span>{lang.label}</span>
+                      <span>{lang.native}</span>
+                      <span className="text-[10px] text-neutral-400">({lang.name})</span>
                     </span>
                     {selectedLanguage.code === lang.code && (
                       <CheckCircle2 className="w-3.5 h-3.5 text-antigravity-orange" />
@@ -302,36 +271,36 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       </header>
 
       {/* Main Hero & Luminous Frosted Glassmorphism Login Card */}
-      <main className="flex-1 flex items-center justify-center px-4 py-8 z-10">
-        <div className="w-full max-w-[440px] rounded-3xl bg-white/85 backdrop-blur-2xl border border-white/90 shadow-[0_20px_50px_rgba(10,37,64,0.16)] p-7 sm:p-9 text-center transition-all duration-300">
+      <main className="flex-1 flex items-center justify-center px-4 py-6 sm:py-10 z-10">
+        <div className="w-full max-w-[450px] rounded-3xl bg-white/90 backdrop-blur-2xl border border-white/90 shadow-[0_20px_50px_rgba(10,37,64,0.14)] p-7 sm:p-8 text-center transition-all duration-300">
           
           {/* Sahaay Emblem Header inside Card */}
-          <div className="flex flex-col items-center mb-5">
-            <div className="relative w-16 h-16 mb-2.5 p-1 rounded-2xl bg-white shadow-xs border border-emerald-100 flex items-center justify-center">
+          <div className="flex flex-col items-center mb-3.5 sm:mb-4">
+            <div className="relative w-12 h-12 sm:w-14 sm:h-14 mb-2 p-1 rounded-2xl bg-white shadow-xs border border-emerald-100 flex items-center justify-center">
               <Image
                 src="/sahaay-logo.png"
                 alt="Sahaay Emblem"
-                width={56}
-                height={56}
+                width={48}
+                height={48}
                 className="object-contain"
                 priority
               />
             </div>
-            <h1 className="font-serif text-2xl sm:text-[26px] font-bold text-antigravity-navy tracking-tight">
-              Welcome to Sahaay
+            <h1 className="font-serif text-2xl font-bold text-antigravity-navy tracking-tight">
+              {t("welcome")}
             </h1>
-            <p className="font-sans text-xs sm:text-[13px] text-neutral-600 mt-0.5 font-medium">
-              Empowering Rural & Semi-Urban Entrepreneurs
+            <p className="font-sans text-xs text-neutral-600 mt-0.5 font-medium">
+              {t("tagline")}
             </p>
-            <span className="font-sans text-[10px] font-bold tracking-[0.2em] text-[#D96B27] uppercase mt-2">
-              Fast OTP Access • Zero Password
+            <span className="font-sans text-[10px] font-bold tracking-[0.2em] text-[#D96B27] uppercase mt-1.5">
+              {t("fastOtpAccess")}
             </span>
           </div>
 
           {/* Feedback & Status Alert Banner */}
           {statusMessage && (
             <div
-              className={`mb-5 px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-2 text-left animate-in fade-in duration-200 ${
+              className={`mb-3 px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 text-left animate-in fade-in duration-200 ${
                 statusMessage.type === "error"
                   ? "bg-red-500/15 border border-red-500/30 text-red-900 font-medium"
                   : statusMessage.type === "success"
@@ -345,20 +314,20 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
           {/* STEP 1: Full Name & Mobile Number Form */}
           {step === "input" && (
-            <form onSubmit={handleRequestOtp} className="space-y-4 text-left">
+            <form onSubmit={handleRequestOtp} className="space-y-3 sm:space-y-3.5 text-left">
               {/* Full Name Input */}
               <div>
-                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-1.5 pl-0.5">
-                  Full Name
+                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-1 pl-0.5">
+                  {t("fullName")}
                 </label>
-                <div className="relative flex items-center rounded-2xl bg-white/90 border border-neutral-200/90 px-3.5 py-3 shadow-xs focus-within:border-[#0A2540] focus-within:ring-2 focus-within:ring-[#0A2540]/15 transition-all">
+                <div className="relative flex items-center rounded-2xl bg-white/90 border border-neutral-200/90 px-3.5 py-2.5 shadow-xs focus-within:border-[#0A2540] focus-within:ring-2 focus-within:ring-[#0A2540]/15 transition-all">
                   <User className="w-4 h-4 text-neutral-500 mr-2.5 shrink-0" />
                   <input
                     type="text"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Anand Sharma"
+                    placeholder={t("fullNamePlaceholder")}
                     className="w-full bg-transparent border-none outline-none font-sans text-sm text-neutral-900 placeholder-neutral-400 font-medium"
                   />
                 </div>
@@ -366,10 +335,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
               {/* Mobile Number Input with +91 Pill */}
               <div>
-                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-1.5 pl-0.5">
-                  Mobile Number
+                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-1 pl-0.5">
+                  {t("mobileNumber")}
                 </label>
-                <div className="flex items-center rounded-2xl bg-white/90 border border-neutral-200/90 p-1.5 shadow-xs focus-within:border-[#0A2540] focus-within:ring-2 focus-within:ring-[#0A2540]/15 transition-all">
+                <div className="flex items-center rounded-2xl bg-white/90 border border-neutral-200/90 p-1 shadow-xs focus-within:border-[#0A2540] focus-within:ring-2 focus-within:ring-[#0A2540]/15 transition-all">
                   <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-100 text-xs font-bold text-neutral-800 shrink-0 border border-black/5">
                     <span>🇮🇳</span>
                     <span>+91</span>
@@ -384,8 +353,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     className="w-full bg-transparent border-none outline-none px-3 py-1 font-sans text-sm tracking-wider text-neutral-900 placeholder-neutral-400 font-semibold"
                   />
                 </div>
-                <p className="text-[11px] text-neutral-500 mt-1.5 pl-1">
-                  We&apos;ll send a 6-digit SMS verification code
+                <p className="text-[11px] text-neutral-500 mt-1 pl-1">
+                  {t("otpNotice")}
                 </p>
               </div>
 
@@ -393,16 +362,16 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-[#0A2540] hover:bg-[#D96B27] active:scale-[0.99] py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
+                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-[#0A2540] hover:bg-[#D96B27] active:scale-[0.99] py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
               >
                 {isLoading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Sending Code...</span>
+                    <span>{t("sendingOtp")}</span>
                   </>
                 ) : (
                   <>
-                    <span>Get OTP Code</span>
+                    <span>{t("getOtpBtn")}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -412,10 +381,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
           {/* STEP 2: 6-Digit OTP Verification Form */}
           {step === "otp" && (
-            <form onSubmit={handleVerifyOtp} className="space-y-5 text-left animate-in fade-in duration-200">
+            <form onSubmit={handleVerifyOtp} className="space-y-3.5 sm:space-y-4 text-left animate-in fade-in duration-200">
               <div className="flex items-center justify-between pb-1 border-b border-black/5">
                 <div>
-                  <span className="font-sans text-xs text-neutral-500 block">OTP sent to:</span>
+                  <span className="font-sans text-xs text-neutral-500 block">OTP:</span>
                   <span className="font-sans text-sm font-bold text-neutral-900">+91 {mobileNumber}</span>
                 </div>
                 <button
@@ -426,14 +395,14 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   }}
                   className="font-sans text-xs font-semibold text-emerald-800 hover:underline flex items-center gap-1"
                 >
-                  <Edit3 className="w-3 h-3" /> Change
+                  <Edit3 className="w-3 h-3" /> {t("changeNumber")}
                 </button>
               </div>
 
               {/* 6 Discrete Single-Digit OTP Inputs */}
               <div>
-                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-2.5 text-center">
-                  Enter 6-Digit Verification Code
+                <label className="block font-sans text-xs font-semibold text-neutral-800 mb-2 text-center">
+                  {t("enterOtpTitle")}
                 </label>
                 <div className="flex items-center justify-center gap-2 sm:gap-2.5">
                   {otpDigits.map((digit, idx) => (
@@ -449,7 +418,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       onChange={(e) => handleOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                       onPaste={handleOtpPaste}
-                      className="w-11 h-13 sm:w-12 sm:h-14 text-center font-serif text-xl font-bold text-emerald-900 rounded-2xl bg-white/95 border border-neutral-200/90 focus:border-[#0A2540] focus:ring-2 focus:ring-[#0A2540]/20 outline-none shadow-xs transition-all"
+                      className="w-10 h-12 sm:w-11 sm:h-12 text-center font-serif text-xl font-bold text-emerald-900 rounded-2xl bg-white/95 border border-neutral-200/90 focus:border-[#0A2540] focus:ring-2 focus:ring-[#0A2540]/20 outline-none shadow-xs transition-all"
                     />
                   ))}
                 </div>
@@ -463,11 +432,11 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     onClick={(e) => handleRequestOtp(e)}
                     className="font-semibold text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    <RefreshCw className="w-3 h-3" /> Resend OTP Code
+                    <RefreshCw className="w-3 h-3" /> {t("resendBtn")}
                   </button>
                 ) : (
                   <span className="text-neutral-500">
-                    Resend code in: <strong className="text-neutral-800">00:{timerSeconds < 10 ? `0${timerSeconds}` : timerSeconds}</strong>
+                    {t("resendIn")}: <strong className="text-neutral-800">00:{timerSeconds < 10 ? `0${timerSeconds}` : timerSeconds}</strong>
                   </span>
                 )}
                 <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
@@ -479,16 +448,16 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-[#0A2540] hover:bg-[#D96B27] active:scale-[0.99] py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
+                className="w-full mt-2 font-sans text-sm font-semibold text-white bg-[#0A2540] hover:bg-[#D96B27] active:scale-[0.99] py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
               >
                 {isLoading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Verifying with Firebase & Supabase...</span>
+                    <span>{t("verifying")}</span>
                   </>
                 ) : (
                   <>
-                    <span>Verify & Enter Platform</span>
+                    <span>{t("verifyOtpBtn")}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -497,19 +466,19 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           )}
 
           {/* Bottom Security Guarantee */}
-          <div className="mt-6 pt-4 border-t border-[#3C2F20]/10 flex items-center justify-center gap-1.5 text-center">
+          <div className="mt-4 pt-3 border-t border-[#3C2F20]/10 flex items-center justify-center gap-1.5 text-center">
             <ShieldCheck className="w-4 h-4 text-[#2D6A4F] shrink-0" />
             <span className="font-sans text-[11px] font-medium text-[#4D4032]">
-              100% secure & simple verification
+              {t("secureVerificationNotice")}
             </span>
           </div>
         </div>
       </main>
 
       {/* Footer Branding */}
-      <footer className="w-full py-4 text-center z-10">
-        <p className="font-sans text-xs text-white/80 drop-shadow">
-          Sahaay for Every Step, Success for Every Dream • Government of India MSME Advisory
+      <footer className="w-full py-2.5 sm:py-3 text-center z-10">
+        <p className="font-sans text-xs text-neutral-600 font-medium">
+          {t("msmeAdvisoryFooter")}
         </p>
       </footer>
     </div>
